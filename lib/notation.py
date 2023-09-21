@@ -73,8 +73,11 @@ class Atom:
         item_contour = []
         want_dur = self.dur_units
         if isinstance(contour, (int,float)):
-            contour = ((self.dur_units, contour),)
+            contour = [(self.dur_units, contour)]
         while want_dur and len(contour):
+            if isinstance(contour[0], (int,float)):
+                contour = contour.copy()
+                contour[0] = [self.dur_units, contour[0]]
             have_dur = contour[0][0]
             dv = contour[0][1:]
             if abs(want_dur - have_dur) < 1e-6:
@@ -220,9 +223,6 @@ class Atom:
         result = self / Atom(pcs = [other])
         return result
 
-    #def __matmul__(self, other):
-    #    # xxx check for numeric
-    #    return self % Atom(volume = other)
 
 #
 # pass 1: Python evaluation. Proceeds bottom up, so we can't do any

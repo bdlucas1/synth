@@ -14,10 +14,12 @@ Cheat sheet
 | x/v0, x/v1, ..., x/v100     | Absolute volume for x and succeeding notes. |
 | x>v                         | Volume adjustment v for note x. May be positive or negative. Added to absolute volume. |
 | x>(v,w)                     | Volume adjustment varying from v at start to w and end of note x. |
+| x>[v0,v1,...]               | Volume adjustment spanning multiple notes starting with x. v0 is applied to x, v1 to next note, and so on. |
 | x>[(dur0,v0),(dur1,v1),...] | Volume adjustment possibly spanning multiple notes starting with x. Volume adjustment v0 for dur0, then v1 for dur1, ... Dur is 1, 1/2, 1/4, ... for whole, half, quarter, ... note. x may be a note or an instruction such as bar check I. |
 | x>[(dur0,v0,w0),...]        | Volume adjustment varying from v0 to w0 over period dur0. |
 | x@p                         | Pitch adjustment p for note x in units of semitones. May be positive or negative. Added to normal pitch for x. |
 | x@(p,q)                     | Pitch adjustment varying from p at start to q and end of note x. |
+| x>[p0,p1,...]               | Pitch adjustment spanning multiple notes starting with x. p0 is applied to x, p1 to next note, and so on. |
 | x@[(dur0,p0),(dur1,p1),...] | Pitch adjustment possibly spanning multiple notes starting with x. Pitch adjustment p0 for dur0, then p1 for dur1, ... |
 | x@[(dur0,p0,q0),...]        | Pitch adjustment varying from p0 to q0 over period dur0, ... |
 | x*n                         | Repeat x n times, where x is S(), P(), or a note. |

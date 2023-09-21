@@ -1,13 +1,11 @@
 import notation
 
-# rhythmic (accent) patterns apply to succeeding notes of measure
-I1 = I > [(1/4,8), (1/4,0), (1/4,5), (1/4,0)]
-I112 = I > [(1/4,8), (1/4,0), (2/4,5)]
-I121 = I > [(1/4,8), (2/4,8)]
-I22 = I > [(2/4,8), (2/4,5)]
-I4 = I > [(4/4,8)]
-I31 = I > [(3/4,8)]
-I211 = I > [(2/4,8)]
+# define stress (accent) patterns that apply to succeeding notes of measure
+# p primary, n none, s secondary
+Ipns = I > [8, 0, 5]
+Ipp = I > [8, 8]
+Ips = I > [8, 5]
+Ip = I > [8]
 
 # portamento of -2 semitones for the last 1/16 of a 1/2 note
 #port = [(1/2-1/16,0), (1/16,0,-2)]
@@ -22,31 +20,31 @@ P(
     transpose(-12),
 
     S(
-        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I1,a,+f@port,d,c,     ~I112,b,d,-g/2,
-        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I121,a,d/2@port,b/4,  ~I4,c/1,
+        ~Ipns,c5/4,g,c,e,    ~Ipns,g,e,c,g,     ~Ipns,a,+f@port,d,c, ~Ipns,b,d,-g/2,
+        ~Ipns,c5/4,g,c,e,    ~Ipns,g,e,c,g,     ~Ipp,a,d/2@port,b/4, ~Ip,c/1,
 
-        ~I22,d5/2,e,       ~I1,d/4,-g,g,g,   ~I22,+d/2,e,       ~I1,d/4,-g,g,g,
-        ~I22,b4/2,c,       ~I22,d,e,         ~I1,b/4,b,c,a,     ~I1,g,g,g,g,
+        ~Ips,d5/2,e,         ~Ipns,d/4,-g,g,g,  ~Ips,+d/2,e,         ~Ipns,d/4,-g,g,g,
+        ~Ips,b4/2,c,         ~Ips,d,e,          ~Ipns,b/4,b,c,a,     ~Ipns,g,g,g,g,
 
-        ~I22,g5/2,e,       ~I22,f,d,         ~I22,e,c,          ~I1,b/4,g,g,g,
-        ~I22,g5/2,e,       ~I22,f,d,         ~I22,e,c,          ~I22,b/2,r,
+        ~Ips,g5/2,e,         ~Ips,f,d,          ~Ips,e,c,            ~Ipns,b/4,g,g,g,
+        ~Ips,g5/2,e,         ~Ips,f,d,          ~Ips,e,c,            ~Ips,b/2,r,
 
-        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I1,a,+f,d,c,      ~I1,b,g,a,b,
-        ~I1,c5/4,g,c,e,    ~I1,e,-a,d,f,     ~I1,e,c@port,d,b,   I,c/(2,4)%ring
+        ~Ipns,c5/4,g,c,e,    ~Ipns,g,e,c,g,     ~Ipns,a,+f,d,c,      ~Ipns,b,g,a,b,
+        ~Ipns,c5/4,g,c,e,    ~Ipns,e,-a,d,f,    ~Ipns,e,c@port,d,b,  I,c/(2,4)%ring
     ),
 
     S(
-        ~I4,c4/1,          ~I31,t/(2,4),e/4, ~I4,f/1,           ~I211,g/2,r/4,f,
-        ~I4,e4/1,          ~I31,t/(2,4),e/4, ~I22,f/2, g/2,     ~I1,-c/4,+g,e,c,
+        ~Ip,c4/1,            ~Ip,t/(2,4),e/4,   ~Ip,f/1,             ~Ip,g/2,r/4,f,
+        ~Ip,e4/1,            ~Ip,t/(2,4),e/4,   ~Ips,f/2, g/2,       ~Ipns,-c/4,+g,e,c,
 
-        ~I1,b3/4,+g,-c,+g, ~I4,-b/1,         ~I1,b3/4,+g,-c,+g, ~I4,-b/1,
-        ~I1,g3/4,+g,-a,+g, ~I1,-b,+g,-c,+g,  ~I22,d/2,d,        ~I4,-g/1,
+        ~Ipns,b3/4,+g,-c,+g, ~Ip,-b/1,          ~Ipns,b3/4,+g,-c,+g, ~Ip,-b/1,
+        ~Ipns,g3/4,+g,-a,+g, ~Ipns,-b,+g,-c,+g, ~Ips,d/2,d,          ~Ip,-g/1,
 
-        ~I1,e4/4,g,-c,+g,  ~I1,d,g,-b,+g,    ~I1,-c,+g,e,g,     ~I4,d/1,
-        ~I1,e4/4,g,-c,+g,  ~I1,d,g,-b,+g,    ~I1,-c,+g,e,g,     ~I1,g,+g,f,d,
+        ~Ipns,e4/4,g,-c,+g,  ~Ipns,d,g,-b,+g,   ~Ipns,-c,+g,e,g,     ~Ip,d/1,
+        ~Ipns,e4/4,g,-c,+g,  ~Ipns,d,g,-b,+g,   ~Ipns,-c,+g,e,g,     ~Ipns,g,+g,f,d,
 
-        ~I4,c4/1,          ~I4,e,            ~I4,f,             ~I22,g/2,f,
-        ~I4,e4/1,          ~I4,f,            ~I22,g/2,-g/2,      I,+c/4>-10,P(e>-8,g>-8),-c%ring
+        ~Ip,c4/1,            ~Ip,e,             ~Ip,f,               ~Ips,g/2,f,
+        ~Ip,e4/1,            ~Ip,f,             ~Ips,g/2,-g/2,       I,+c/4>-10,P(e>-8,g>-8),-c%ring
     )
 
 ).write().play()

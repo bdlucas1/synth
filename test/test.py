@@ -97,6 +97,13 @@ class Test:
             )
         )
 
+    def test15():
+        R = I > [20,0,10,0]
+        return S(
+            saxophone,
+            R, c*4, R, d/8*4
+        )
+
 
 def compare(fn1, fn2):
 
@@ -138,7 +145,7 @@ def compare(fn1, fn2):
         if clip2:
             print("playing", fn2)
             clip2.play()
-        #exit(-1)
+        exit(-1)
 
 def test(name):
     print("=== running", name)
@@ -148,6 +155,7 @@ def test(name):
     getattr(Test, name)().render().write(tmp_fn)
     compare(ref_fn, tmp_fn)
 
+test("test15")
 test("test12")
 test("test13")
 test("test14")
