@@ -9,8 +9,8 @@ Cheat sheet
 | +x, -x                      | Relative pitches one octave higher or lower (LilyPond x' or x,)
 | r                           | Rest. |
 | x/1, x/2, x/4, ...          | Whole, half, quarter, ... note duration for note or rest x. |
-| x/(1,2), x/(1,2,4), ...     | Dotted whole note, double dotted whole note, etc. Duration as fraction of a whole note is sum of reciprocals. |
-| v0, v1, ..., v100           | Absolute volume instruction for succeeding notes. |
+| x/(1,2), x/(1,2,4), x(2,4), ... | Dotted whole note, double dotted whole note, dotted half note, ... Duration as fraction of a whole note is sum of reciprocals. |
+| v0, v1, ..., v100           | Absolute volume instruction for succeeding notes, on a logarithmic scale. |
 | x/v0, x/v1, ..., x/v100     | Absolute volume for x and succeeding notes. |
 | x>v                         | Volume adjustment v for note x. May be positive or negative. Added to absolute volume. |
 | x>(v,w)                     | Volume adjustment varying from v at start to w and end of note x. |
