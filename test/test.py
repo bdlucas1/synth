@@ -57,7 +57,7 @@ class Test:
 
     # pause, extend with bar check
     def test8():
-        return S(I, c, e, g, c/8, x/16, p/16, b/8, I, P(-c/2,e,g,c))
+        return S(I, c, e, g, c/8, h/16, p/16, b/8, I, P(-c/2,e,g,c))
 
     # temp %
     def test9():

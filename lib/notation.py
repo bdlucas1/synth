@@ -354,14 +354,14 @@ class Items:
                     # distinguish between numeric pitch, and string instruction
                     if isinstance(item.pitch, str):
 
-                        # pause and extend are extra-temporal (delay the beat)
-                        # pause leaves silence, extend extends previous note
-                        if item.pitch in ("pause", "extend"):
+                        # pause and hold are extra-temporal (delay the beat)
+                        # pause leaves silence, hold extends previous note
+                        if item.pitch in ("pause", "hold"):
                             item.dur_bars = 0
 
-                        # tie and extend extend the previous note
-                        # extend is extra-temporal
-                        if item.pitch in ("tie", "extend"):
+                        # tie and hold extend the previous note
+                        # hold is extra-temporal
+                        if item.pitch in ("tie", "hold"):
                             result[-1].dur_secs += item.dur_secs
                             result[-1].dur_bars += item.dur_bars
                             if isinstance(self, P):
@@ -567,7 +567,6 @@ def std_defs():
     builtins.S = S
     builtins.R = R
     builtins.I = Atom(bar = True)
-    builtins.PC = lambda *args: Atom(pcs = [list(args)])
     builtins.tempo = tempo
     builtins.time = time
     builtins.transpose = transpose
@@ -575,7 +574,7 @@ def std_defs():
     builtins.r = Atom(pitch = "rest")
     builtins.t = Atom(pitch = "tie")
     builtins.p = Atom(pitch = "pause")
-    builtins.x = Atom(pitch = "extend")
+    builtins.h = Atom(pitch = "hold")
     builtins._ = Atom()
     builtins.ring = Atom(ring = True)
     builtins.stop = Atom(ring = False)
