@@ -9,10 +9,11 @@ I4 = I > [(4/4,8)]
 I31 = I > [(3/4,8)]
 I211 = I > [(2/4,8)]
 
-# define a portamento of s semitones for the last x of a note of length t
-def port(t, s=-2, x=1/16):
-    return [(t-x,0),(x,0,s)]
+# portamento of -2 semitones for the last 1/16 of a 1/2 note
+#port = [(1/2-1/16,0), (1/16,0,-2)]
 
+# more general version - can be attached to note of any length
+port = lambda note: [(7/8*note.dur_units,0), (1/8*note.dur_units,0,-2)]
 
 P(
     guitar,
@@ -21,8 +22,8 @@ P(
     transpose(-12),
 
     S(
-        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I1,a,+f,d,c,             ~I112,b,d,-g/2,
-        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I121,a,d/2@port(1/2),b/4,  ~I4,c/1,
+        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I1,a,+f@port,d,c,     ~I112,b,d,-g/2,
+        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I121,a,d/2@port,b/4,  ~I4,c/1,
 
         ~I22,d5/2,e,       ~I1,d/4,-g,g,g,   ~I22,+d/2,e,       ~I1,d/4,-g,g,g,
         ~I22,b4/2,c,       ~I22,d,e,         ~I1,b/4,b,c,a,     ~I1,g,g,g,g,
@@ -31,7 +32,7 @@ P(
         ~I22,g5/2,e,       ~I22,f,d,         ~I22,e,c,          ~I22,b/2,r,
 
         ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I1,a,+f,d,c,      ~I1,b,g,a,b,
-        ~I1,c5/4,g,c,e,    ~I1,e,-a,d,f,     ~I1,e,c,d,b,       I,c/(2,4)%ring
+        ~I1,c5/4,g,c,e,    ~I1,e,-a,d,f,     ~I1,e,c@port,d,b,   I,c/(2,4)%ring
     ),
 
     S(
