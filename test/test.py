@@ -2,6 +2,7 @@ import notation
 import sys
 import soundfile as sf
 import engine
+import os
 
 #
 #
@@ -142,8 +143,8 @@ def compare(fn1, fn2):
 def test(name):
     print("=== running", name)
     fn = f"{name}.mp3"
-    tmp_fn = f"/tmp/{fn}"
-    ref_fn = "/".join(__file__.split("/")[:-1] + [fn])
+    tmp_fn = os.path.join("/tmp", fn)
+    ref_fn = os.path.join(os.path.dirname(__file__), fn)
     getattr(Test, name)().render().write(tmp_fn)
     compare(ref_fn, tmp_fn)
 

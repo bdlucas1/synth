@@ -663,7 +663,7 @@ class SynthLib(Lib):
 
     def load(self, name, base_lib=None, base_name=None, harmonics=None, **kwargs):
         if base_lib and base_name:
-            instrument_cache = ".instruments"
+            instrument_cache = os.path.join(os.path.dirname(__file__), ".instruments")
             path = os.path.join(instrument_cache, f"{name}.npy")
             if os.path.exists(path):
                 print("loading", path)
