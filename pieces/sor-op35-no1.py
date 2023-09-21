@@ -1,6 +1,6 @@
 import notation
 
-# rhythmic patterns
+# rhythmic (accent) patterns apply to succeeding notes of measure
 I1 = I > [(1/4,8), (1/4,0), (1/4,5), (1/4,0)]
 I112 = I > [(1/4,8), (1/4,0), (2/4,5)]
 I121 = I > [(1/4,8), (2/4,8)]
@@ -9,8 +9,9 @@ I4 = I > [(4/4,8)]
 I31 = I > [(3/4,8)]
 I211 = I > [(2/4,8)]
 
-#fall = lambda t: PC((t-1/8,0),(1/8,0,-0.5))
-fall = lambda t: [(t-1/8,0),(1/8,0,-0.5)]
+# define a portamento of s semitones for the last x of a note of length t
+def port(t, s=-2, x=1/16):
+    return [(t-x,0),(x,0,s)]
 
 
 P(
@@ -21,7 +22,7 @@ P(
 
     S(
         ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I1,a,+f,d,c,             ~I112,b,d,-g/2,
-        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I121,a,d/2@fall(1/2),b/4,  ~I4,c/1,
+        ~I1,c5/4,g,c,e,    ~I1,g,e,c,g,      ~I121,a,d/2@port(1/2),b/4,  ~I4,c/1,
 
         ~I22,d5/2,e,       ~I1,d/4,-g,g,g,   ~I22,+d/2,e,       ~I1,d/4,-g,g,g,
         ~I22,b4/2,c,       ~I22,d,e,         ~I1,b/4,b,c,a,     ~I1,g,g,g,g,
