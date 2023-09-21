@@ -4,6 +4,8 @@ Cheat sheet
 | S(...)                      | Content played sequentially. |
 | P(...)                      | Content played in parallel. S and P may be arbitrarily nested. |
 
+More.
+
 | c0, cs0, df0, ..., cf7, c7  | Notes with absolute pitch. |
 | c, cs, d, ... bf, b         | Notes with pitches relative to most recent pitch (LilyPond style).|
 | +x, -x                      | Relative pitches one octave higher or lower (LilyPond x' or x,)
