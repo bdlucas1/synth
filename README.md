@@ -1,3 +1,4 @@
+| --- | --- |
 | S(...)                      | Content played sequentially. |
 | P(...)                      | Content played in parallel. S and P may be arbitrarily nested. |
 
