@@ -107,7 +107,7 @@ class Atom:
             last_dv_end = dv_end
 
         # compute dbg
-        fmt = lambda dv: "-".join(str(v) for v in dv)
+        fmt = lambda dv: ":".join(str(v) for v in dv)
         dbg = ",".join(fmt(v[1:]) for v in item_contour)
 
         return contour, item_contour, dbg
@@ -486,14 +486,18 @@ class Items:
         return clip
 
     def play(self):
-        return self.render().play()
+        clip = self.render()
+        clip.play()
+        return clip
 
     def write(self, f=None):
         if f == None:
             #f = sys.argv[0].replace(".py", ".ogg")
             f = sys.argv[0].replace(".py", ".mp3")
+        clip = self.render()
         print("writing", f)
-        return self.render().write(f)
+        clip.write(f)
+        return clip
 
     # repeat other times
     def __mul__(self, other):
