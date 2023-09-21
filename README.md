@@ -23,8 +23,8 @@ Cheat sheet
 | x*n                         | Repeat x n times, where x is S(), P(), or a note. |
 | I                           | Bar check marker instruction. (LilyPond \|) |
 | t/dur                       | Tied note. Extends previous note by dur. Useful for notes that cross bar boundaries. |
-| h/dur                       | Hold. Extends previous note by dur but does not interrupt beat. |
-| p/dur                       | Pause. Like a rest but does not interrupt beat. |
+| h/dur                       | Hold. Extends previous note by dur but does not count against beat. |
+| p/dur                       | Pause. Like a rest but does not count against beat. |
 | guitar, clarinet, saxophone | Instrument instruction. Applies to all succeeding notes. |
 | time(m,n)                   | Time signature m/n.
 | tempo(m,n)                  | Tempo marking: 1/m note is n beats per minute. |
