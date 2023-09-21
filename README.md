@@ -28,5 +28,5 @@ Cheat sheet
 | guitar, clarinet, saxophone | Instrument instruction. Applies to all succeeding notes. |
 | time(m,n)                   | Time signature m/n.
 | tempo(m,n)                  | Tempo marking: 1/m note is n beats per minute. |
-| transpose(n)                | Transpose succeeding notes by n semitones. |
+| transpose(n)                | Transpose all succeeding notes by n semitones. |
 
