@@ -21,7 +21,7 @@ Cheat sheet
 | x@[(dur0,p0),(dur1,p1),...] | Pitch adjustment possibly spanning multiple notes starting with x. Pitch adjustment p0 for dur0, then p1 for dur1, ... |
 | x@[(dur0,p0,q0),...]        | Pitch adjustment varying from p0 to q0 over period dur0, ... |
 | x*n                         | Repeat x n times, where x is S(), P(), or a note. |
-| I                           | Bar check marker. (LilyPond \|) |
+| I                           | Bar check marker instruction. (LilyPond \|) |
 | t/dur                       | Tied note. Extends previous note by dur. Useful for notes that cross bar boundaries. |
 | h/dur                       | Hold. Extends previous note by dur but does not interrupt beat. |
 | p/dur                       | Pause. Like a rest but does not interrupt beat. |
