@@ -19,12 +19,6 @@ class Atom:
             self.line = info.lineno
             self.col = info.positions.col_offset + 1 if hasattr(info, "positions") else None
 
-    def __call__(self):
-        copy = self.copy()
-        frame = inspect.currentframe().f_back
-        copy.dbg = Atom.Dbg(frame)
-        return copy
-
     # has to be a copy of the above code else frame is wrong
     def __invert__(self):
         copy = self.copy()
@@ -328,6 +322,8 @@ class Items:
                         item.item_vcs = []
                         item.exclude.add("item_vcs")
                         for i, vc in enumerate(item.vcs):
+                            if callable(vc):
+                                vc = vc(item)
                             vc, item_vc, vc_dbg = item.item_contour(vc)
                             item.item_vcs.append(item_vc)
                             if len(vc):
@@ -342,6 +338,8 @@ class Items:
                         item.item_pcs = []
                         item.exclude.add("item_pcs")
                         for i, pc in enumerate(item.pcs):
+                            if callable(pc):
+                                pc = pc(item)
                             pc, item_pc, pc_dbg = item.item_contour(pc)
                             item.item_pcs.append(item_pc)
                             if len(pc):
