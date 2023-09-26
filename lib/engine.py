@@ -397,13 +397,6 @@ class Envelope:
         self.ts = ts
         self.vs = vs
 
-def with_vol(clip, vol):
-    mul = 100 ** (vol / 100) # v0->1, v50->10, v100->100
-    if isinstance(mul, np.ndarray) and len(mul) < len(clip):
-        mul = np.concatenate([mul, np.full(len(clip) - len(mul), mul[-1])])
-    clip = Clip().copy(clip)
-    clip.buf *= mul
-    return clip
 
 class BaseSynth:
 
@@ -411,21 +404,14 @@ class BaseSynth:
         self.dbg = dbg
         self.clips = {}
 
-    def get_clip(self, freq=None, vol=None, duration=None, ph=False):
-
-        if freq is None: freq = self.base_fundamental
-        if duration is None: duration = self.base_duration
-
-        # already seen?
-        # doesn't handle portamento
-        if isinstance(freq, (int, float)) and (freq, duration) in self.clips:
-            return with_vol(self.clips[(freq, duration)], vol)
+    # compute clip of given freqency (may be frequency contour) and duration
+    def compute_clip(self, freq, dur):
 
         # xxx sample rate?
         clip = Clip()
 
         # compute harmonics from self.harmonics either directly or by resampling
-        clip_dur, harmonics = self.get_harmonics(freq, duration, clip)
+        clip_dur, harmonics = self.get_harmonics(freq, dur, clip)
 
         # compute theta, whose derivative is instantaneous frequency
         n = clip.t2i(clip_dur)
@@ -446,26 +432,53 @@ class BaseSynth:
         clip.buf = sum(h * np.sin(2*np.pi*theta) for theta, h in zip(thetas, harmonics))
 
         # clip if non-elastic
-        # this does nothing if duration > clip.duration.
+        # this does nothing if dur > clip.duration.
         # xxx is this ok? should be if we add notes as events instead of concatenating them
         if not self.elastic:
-            if duration < clip.duration:
-                clip = clip.trimmed(0, clip.duration - duration)
-            ease_out = clip.interp_envelope([0, duration-self.ease_out, duration], [1, 1, 0]) ** 2
+            if dur < clip.duration:
+                clip = clip.trimmed(0, clip.duration - dur)
+            ease_out = clip.interp_envelope([0, dur-self.ease_out, dur], [1, 1, 0]) ** 2
             clip.apply_envelope(ease_out)
 
         # debugging plots
         if self.dbg:
-            ax = dbg.axs(1, f"{self.name} {freq:.1f} Hz, {duration:.1f} s")
+            ax = dbg.axs(1, f"{self.name} {freq:.1f} Hz, {dur:.1f} s")
             clip.plot_buf(ax)
             clip.get_envelope(normalize=False).plot_buf(ax)
 
-        # remember for future
-        if isinstance(freq, (int, float)):
-            self.clips[(freq, duration)] = clip
-            clip = Clip().copy(clip)
+        return clip
 
-        return with_vol(clip, vol)
+
+    # get clip of given freq, vol, dur, using memo
+    def get_clip(self, freq=None, vol=None, dur=None, ph=False):
+
+        if freq is None: freq = self.base_fundamental
+        if dur is None: dur = self.base_duration
+
+        # consult memo
+        num = (int,float)
+        if isinstance(freq, num) and isinstance(vol, num) and (freq, vol, dur) in self.clips:
+            return self.clips[(freq, vol, dur)]
+        elif isinstance(freq, num) and (freq, dur) in self.clips:
+            without_vol = self.clips[(freq, dur)]
+        else:
+            without_vol = self.compute_clip(freq, dur)
+
+        # compute and apply volume
+        mul = 100 ** (vol / 100) # v0->1, v50->10, v100->100
+        if isinstance(mul, np.ndarray) and len(mul) < len(without_vol):
+            mul = np.concatenate([mul, np.full(len(without_vol) - len(mul), mul[-1])])
+        with_vol = Clip().copy(without_vol)
+        with_vol.buf *= mul
+
+        # remember
+        #if isinstance(freq, num) and isinstance(vol, num): # makeing very little diff - working?
+        #    self.clips[(freq, vol, dur)] = with_vol
+        if isinstance(freq, num): # sor-op35-no1 is about 3x faster with this
+            self.clips[(freq, dur)] = without_vol
+
+        # here's our answer
+        return with_vol
 
 
 class HarmonicSynth(BaseSynth):
