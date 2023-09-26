@@ -3,6 +3,7 @@ import sys
 import soundfile as sf
 import engine
 import os
+import numpy as np
 
 #
 #
@@ -121,24 +122,10 @@ def compare(ref_fn, test_fn):
 
     if ref_clip and test_clip:
         if len(ref_clip) == len(test_clip):
-            
             print(f"ref_clip max {max(abs(ref_clip.buf))} {ref_clip.buf.dtype}")
             print(f"test_clip max {max(abs(test_clip.buf))} {test_clip.buf.dtype}")            
-
-            #ref_clip.buf /= (sum(ref_clip.buf**2) / len(ref_clip)) ** 0.5
-            #test_clip.buf /= (sum(test_clip.buf**2) / len(test_clip)) ** 0.5
-
-            #ref_clip.buf /= max(abs(ref_clip.buf))
-            #test_clip.buf /= max(abs(test_clip.buf))
-
-            print(f"ref_clip max {max(abs(ref_clip.buf))} {ref_clip.buf.dtype}")
-            print(f"test_clip max {max(abs(test_clip.buf))} {test_clip.buf.dtype}")            
-
-            #eq = all(b1 == b2 for (b1, b2) in zip(ref_clip.buf, test_clip.buf))
-            max_diff = max(abs(ref_clip.buf-test_clip.buf)) / max(abs(ref_clip.buf))
-            #print(f"abs max_diff {max_diff}")
+            max_diff = max(abs(ref_clip.buf-test_clip.buf))
             max_diff = max_diff / max(abs(ref_clip.buf))
-            #print(f"rel max_diff {max_diff}")
             eq = len(ref_clip)==len(test_clip) and max_diff < 1e-2
             err = f"max_diff {max_diff:.3f}"
         else:

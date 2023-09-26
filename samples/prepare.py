@@ -54,8 +54,8 @@ def prepare(name, dn, fn, trim_start= 0, ease_start= 0, trim_end= 0, ease_end= 0
         #envelope.plot_buf(ax_envelope)
 
     #clip.play()
-    fn = os.path.join(os.path.dirname(__file__), f"{name}.wav")
-    clip.write(fn, fp=True)
+    fn = os.path.join(os.path.dirname(__file__), f"{name}.flac")
+    clip.write(fn)
 
 
 samples = {

@@ -104,7 +104,7 @@ class Clip:
             sf.write(f, self.buf, self.sample_rate, subtype="FLOAT")
         elif False:
             buf = self.buf * (2**15 - 1) / np.max(np.abs(self.buf))
-            buf = buf.astype(np.int32)
+            buf = buf.astype(np.int16)
             sf.write(f, buf, self.sample_rate)
         else:
             buf = self.buf * (2**15 - 1) / np.max(np.abs(self.buf))
@@ -575,18 +575,9 @@ class SynthLib(Lib):
                 synth = np.load(path, allow_pickle = True)[0]                
             else:
                 sample_dn = os.path.join(os.path.dirname(__file__), "..", "samples")
-                sample_fn = os.path.join(sample_dn, f"{sample_name}.wav")
+                sample_fn = os.path.join(sample_dn, f"{sample_name}.flac")
                 clip = Clip().read(sample_fn)
-
                 clip.buf /= max(abs(clip.buf))
-                
-                #clip.buf = (clip.buf * (2**31 - 1)).astype(np.int32).astype(np.float32)
-
-                e = (sum(clip.buf**2) / len(clip.buf)) ** 0.5
-                avg = sum(clip.buf) / len(clip.buf)
-                print(f"xxx clip {name} min {min(clip.buf):.2f} max {max(clip.buf):.2f} "
-                      f"e {e:.3f} avg {avg:.4f} dtype {clip.buf.dtype}")
-
                 synth = Synth(dbg=self.dbg).from_clip(name, clip, **kwargs)
                 print("saving", path)
                 if not os.path.exists(instrument_cache):
