@@ -105,6 +105,10 @@ class Test:
             R, c*4, R, d/8*4
         )
 
+    def test16():
+        lick = S(a2/2, cs, e, a)
+        return S(guitar, lick, multi_guitar, lick)
+
 
 def compare(ref_fn, test_fn):
 
@@ -148,7 +152,7 @@ def compare(ref_fn, test_fn):
         if test_clip:
             print("playing test", test_fn)
             test_clip.play()
-        #exit(-1)
+        exit(-1)
 
 def test(name):
     print("=== running", name)
@@ -158,6 +162,7 @@ def test(name):
     getattr(Test, name)().render().write(tmp_fn)
     compare(ref_fn, tmp_fn)
 
+test("test16")
 test("test11")
 test("test15")
 test("test12")
