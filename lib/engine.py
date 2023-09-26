@@ -7,11 +7,9 @@ import matplotlib.pyplot as plt
 import math
 import atexit
 import simpleaudio as sa  # pip3 install simpleaudio
-import zipfile
 import time
 import collections
 import os
-#import pwlf # piecewise linear fit - exremely slow
 
 #
 # utility
@@ -101,30 +99,25 @@ class Clip:
             self._buf = self._buf[:-1]
         return self
 
-    def write(self, f):
-        buf = self.buf * (2**15 - 1) / np.max(np.abs(self.buf))
-        buf = buf.astype(np.int16)
-
-        fmt = f.split(".")[-1]
-        if fmt == "ogg":
-            # xxx this is just for testing compatibility with existing ref ogg files
-            # maybe switch those to mp3?
+    def write(self, f, fp=False, **kwargs):
+        if fp:
+            sf.write(f, self.buf, self.sample_rate, subtype="FLOAT")
+        elif False:
+            buf = self.buf * (2**15 - 1) / np.max(np.abs(self.buf))
+            buf = buf.astype(np.int32)
             sf.write(f, buf, self.sample_rate)
         else:
+            buf = self.buf * (2**15 - 1) / np.max(np.abs(self.buf))
+            buf = buf.astype(np.int16)
+            fmt = f.split(".")[-1]
             seg = pydub.AudioSegment(
                 buf.tobytes(),
                 frame_rate = self.sample_rate,
                 sample_width = 2,
                 channels = 1
             )
-            seg.export(f, format = fmt) #, bitrate="80k")
-
+            seg.export(f, format = fmt, **kwargs)
         return self
-
-    def lib(self, group, fn):
-        zipfn = f"/Users/bdlucas1/Downloads/all-samples/{group}.zip"
-        f = zipfile.ZipFile(zipfn, 'r').open(f"{fn}.mp3")
-        return self.read(f)
 
     # xxx don't zero? caller instead does Clip().like(other).zeros()?
     def like(self, other):
@@ -549,91 +542,6 @@ class Lib:
         return self.loaded[name]
 
 
-class ClipLib(Lib):
-
-    instruments = {
-
-        "guitar_a3": kwargs(
-            dn = "guitar",
-            fn = "guitar_A3_very-long_forte_normal",
-            trim_start = 1.925,
-            ease_start = 0,
-            trim_end = 1,
-            ease_end = 1
-        ),
-
-        "clarinet_a3": kwargs(
-            dn = "clarinet",
-            fn = "clarinet_A3_1_forte_normal",
-            trim_start = 0,
-            ease_start = 0,
-            trim_end = 0,
-            ease_end = 0.1,
-        ),
-
-        "saxophone_a3": kwargs(
-            dn = "saxophone",
-            fn = "saxophone_A3_15_forte_normal",
-            trim_start = 0.035,
-            ease_start = 0,
-            trim_end = 0.05,
-            ease_end = 0.05
-        ),
-    }            
-
-    def load(self, name, dn, fn, trim_start= 0, trim_end= 0, ease_start= 0, ease_end= 0, lo=100):
-            
-        # get clip from library
-        original_clip = Clip(self.dbg).lib(dn, fn)
-
-        # add padding
-        padding = 0.1
-        clip = original_clip.padded(padding, padding)
-        trim_start += padding
-        trim_end += padding
-
-        # high-pass filter
-        hpfilter = clip.filter(lo=lo)
-        clip = clip.filtered(hpfilter)
-
-        # trim
-        clip = clip.trimmed(trim_start, trim_end)
-
-        # ease in/out
-        # xxx make exponent a parameter?
-        end = clip.duration
-        ease = clip.interp_envelope([0, ease_start, end-ease_end, end], [0, 1, 1, 0]) ** 2
-        clip.apply_envelope(ease)
-
-        if self.dbg:
-            ax_spectrum, ax_hpfilter, ax_clip_spectrum = dbg.axs(3, "load " + name)
-            original_clip.plot_spectrum(ax_spectrum)
-            hpfilter.plot_spectrum(ax_hpfilter)
-            clip.plot_spectrum(ax_clip_spectrum)
-
-            ax_envelope, ax_start, ax_end = dbg.axs(3, ["envelope", "start", "end"])
-
-            envelope = clip.get_envelope(normalize=False)
-            clip.plot_buf(ax_envelope)
-            envelope.plot_buf(ax_envelope)
-
-            ax_start.set_xlim(0, 0.1)
-            clip.plot_buf(ax_start)
-            envelope.plot_buf(ax_start)
-
-            ax_end.set_xlim(clip.duration - 0.1, clip.duration)
-            clip.plot_buf(ax_end)
-            envelope.plot_buf(ax_end)
-
-            #ax_absbuf, ax_envfilter, ax_envelope = dbg.axs(3)
-            #clip.plot_buf(ax_absbuf)
-            #filter.plot_spectrum(ax_envfilter)
-            #envelope.plot_buf(ax_envelope)
-
-        return clip
-
-clip_lib = ClipLib("clip_lib")
-
 class SynthLib(Lib):
 
     instruments = {
@@ -643,33 +551,39 @@ class SynthLib(Lib):
         ),
 
         "guitar": kwargs(
-            base_lib = clip_lib,
-            base_name = "guitar_a3",
+            sample_name = "guitar_a3",
             elastic = False
         ),
 
         "clarinet": kwargs(
-            base_lib = clip_lib,
-            base_name = "clarinet_a3",
+            sample_name = "clarinet_a3",
             elastic = True
         ),
 
         "saxophone": kwargs(
-            base_lib = clip_lib,
-            base_name = "saxophone_a3",
+            sample_name = "saxophone_a3",
             elastic = True
         ),
     }
 
-    def load(self, name, base_lib=None, base_name=None, harmonics=None, **kwargs):
-        if base_lib and base_name:
+    def load(self, name, sample_name=None, harmonics=None, **kwargs):
+        if sample_name:
             instrument_cache = os.path.join(os.path.dirname(__file__), ".instruments")
             path = os.path.join(instrument_cache, f"{name}.npy")
             if os.path.exists(path):
                 print("loading", path)
                 synth = np.load(path, allow_pickle = True)[0]                
             else:
-                clip = base_lib(base_name)
+                sample_dn = os.path.join(os.path.dirname(__file__), "..", "samples")
+                sample_fn = os.path.join(sample_dn, f"{sample_name}.wav")
+                clip = Clip().read(sample_fn)
+
+                #clip.buf /= max(abs(clip.buf))
+                e = (sum(clip.buf**2) / len(clip.buf)) ** 0.5
+                avg = sum(clip.buf) / len(clip.buf)
+                print(f"xxx clip {name} min {min(clip.buf):.2f} max {max(clip.buf):.2f} "
+                      f"e {e:.3f} avg {avg:.4f}")
+
                 synth = Synth(dbg=self.dbg).from_clip(name, clip, **kwargs)
                 print("saving", path)
                 if not os.path.exists(instrument_cache):

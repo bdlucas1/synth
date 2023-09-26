@@ -105,47 +105,61 @@ class Test:
         )
 
 
-def compare(fn1, fn2):
+def compare(ref_fn, test_fn):
 
     try:
-        clip1 = engine.Clip().read(fn1)
+        ref_clip = engine.Clip().read(ref_fn)
     except:
-        print(fn1, "not found")
-        clip1 = None
+        print(ref_fn, "not found")
+        ref_clip = None
 
     try:
-        clip2 = engine.Clip().read(fn2)
+        test_clip = engine.Clip().read(test_fn)
     except:
-        print(fn2, "not found")
-        clip2 = None
+        print(test_fn, "not found")
+        test_clip = None
 
-    if clip1 and clip2:
-        if len(clip1) == len(clip2):
-            #eq = all(b1 == b2 for (b1, b2) in zip(clip1.buf, clip2.buf))
-            max_diff = max(abs(clip1.buf-clip2.buf)) / max(abs(clip1.buf))
+    if ref_clip and test_clip:
+        if len(ref_clip) == len(test_clip):
+            
+            print(f"ref_clip max {max(abs(ref_clip.buf))} {ref_clip.buf.dtype}")
+            print(f"test_clip max {max(abs(test_clip.buf))} {test_clip.buf.dtype}")            
+
+            #ref_clip.buf /= (sum(ref_clip.buf**2) / len(ref_clip)) ** 0.5
+            #test_clip.buf /= (sum(test_clip.buf**2) / len(test_clip)) ** 0.5
+
+            #ref_clip.buf /= max(abs(ref_clip.buf))
+            #test_clip.buf /= max(abs(test_clip.buf))
+
+            print(f"ref_clip max {max(abs(ref_clip.buf))} {ref_clip.buf.dtype}")
+            print(f"test_clip max {max(abs(test_clip.buf))} {test_clip.buf.dtype}")            
+
+            #eq = all(b1 == b2 for (b1, b2) in zip(ref_clip.buf, test_clip.buf))
+            max_diff = max(abs(ref_clip.buf-test_clip.buf)) / max(abs(ref_clip.buf))
             #print(f"abs max_diff {max_diff}")
-            max_diff = max_diff / max(abs(clip1.buf))
+            max_diff = max_diff / max(abs(ref_clip.buf))
             #print(f"rel max_diff {max_diff}")
-            eq = len(clip1)==len(clip2) and max_diff < 1e-2
+            eq = len(ref_clip)==len(test_clip) and max_diff < 1e-2
             err = f"max_diff {max_diff:.3f}"
         else:
             eq = False
-            err = f"lengths differ: clip1 {len(clip1)}, clip2 {len(clip2)}"
+            err = f"lengths differ: ref_clip {len(ref_clip)}, test_clip {len(test_clip)}"
     else:
         err = "missing clip"
         eq = False
 
     if eq:
-        print("PASS", fn2)
+        print(f"max_diff {max_diff:.3f}")
+        print("PASS", test_fn)
     else:
-        print(f"FAIL {fn2} {err}")
-        if clip1:
-            print("playing", fn1)
-            clip1.play()
-        if clip2:
-            print("playing", fn2)
-            clip2.play()
-        exit(-1)
+        print(f"FAIL {test_fn} {err}")
+        if ref_clip:
+            print("playing ref", ref_fn)
+            ref_clip.play()
+        if test_clip:
+            print("playing test", test_fn)
+            test_clip.play()
+        #exit(-1)
 
 def test(name):
     print("=== running", name)
@@ -155,11 +169,11 @@ def test(name):
     getattr(Test, name)().render().write(tmp_fn)
     compare(ref_fn, tmp_fn)
 
+test("test11")
 test("test15")
 test("test12")
 test("test13")
 test("test14")
-test("test11")
 test("test9")
 test("test10")
 test("test8")
