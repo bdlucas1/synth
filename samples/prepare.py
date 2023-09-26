@@ -2,7 +2,7 @@ import engine
 import zipfile
 import os
 
-def prepare(name, dn, fn, trim_start= 0, ease_start= 0, trim_end= 0, ease_end= 0, lo=100):
+def prepare(name, dn, fn, trim_start, ease_start, trim_end, ease_end, lo=100, save=True, dbg=True):
         
     # get clip from library
     zipfn = f"/Users/bdlucas1/Downloads/all-samples/{dn}.zip"
@@ -28,8 +28,8 @@ def prepare(name, dn, fn, trim_start= 0, ease_start= 0, trim_end= 0, ease_end= 0
     ease = clip.interp_envelope([0, ease_start, end-ease_end, end], [0, 1, 1, 0]) ** 2
     clip.apply_envelope(ease)
 
-    if True:
-        ax_spectrum, ax_hpfilter, ax_clip_spectrum = engine.dbg.axs(3, "load " + name)
+    if dbg:
+        ax_spectrum, ax_hpfilter, ax_clip_spectrum = engine.dbg.axs(3, f"load {name}")
         original_clip.plot_spectrum(ax_spectrum)
         hpfilter.plot_spectrum(ax_hpfilter)
         clip.plot_spectrum(ax_clip_spectrum)
@@ -53,9 +53,11 @@ def prepare(name, dn, fn, trim_start= 0, ease_start= 0, trim_end= 0, ease_end= 0
         #filter.plot_spectrum(ax_envfilter)
         #envelope.plot_buf(ax_envelope)
 
-    #clip.play()
-    fn = os.path.join(os.path.dirname(__file__), f"{name}.flac")
-    clip.write(fn)
+    if save:
+        fn = os.path.join(os.path.dirname(__file__), f"{name}.flac")
+        clip.write(fn)
+
+    return clip
 
 
 samples = {
@@ -69,4 +71,5 @@ def prepare_all():
     for sample, args in samples.items():
         prepare(sample, *args)
 
-prepare_all()
+if __name__ == "__main__":
+    prepare_all()

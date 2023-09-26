@@ -217,6 +217,11 @@ class Clip:
     def i2t(self, i):
         return i / self.sample_rate
 
+    def normalized(self):
+        clip = Clip().copy(self)
+        clip.buf /= max(abs(clip.buf))
+        return clip
+
     # softness is more-or-less total width of cutoff
     def filter(self, lo = -math.inf, hi = math.inf, softness = 1e-100):
         softness /= 4
@@ -261,7 +266,7 @@ class Clip:
         # envelope is a time series with a sample_rate
         envelope = Clip().like(self)
 
-        npad = self.t2i(0.1)
+        npad = self.t2i(0.2)
         pad = np.zeros(npad)
 
         # xxx used padded and trimmed
@@ -425,7 +430,7 @@ class Synth:
             mx = max(envelope.buf)
 
         # padding avoids boundary artifacts (ringing?)
-        padding = 0.1
+        padding = 0.2
         clip = clip.padded(padding, padding)
 
         self.harmonics = []
