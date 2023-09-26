@@ -578,11 +578,14 @@ class SynthLib(Lib):
                 sample_fn = os.path.join(sample_dn, f"{sample_name}.wav")
                 clip = Clip().read(sample_fn)
 
-                #clip.buf /= max(abs(clip.buf))
+                clip.buf /= max(abs(clip.buf))
+                
+                #clip.buf = (clip.buf * (2**31 - 1)).astype(np.int32).astype(np.float32)
+
                 e = (sum(clip.buf**2) / len(clip.buf)) ** 0.5
                 avg = sum(clip.buf) / len(clip.buf)
                 print(f"xxx clip {name} min {min(clip.buf):.2f} max {max(clip.buf):.2f} "
-                      f"e {e:.3f} avg {avg:.4f}")
+                      f"e {e:.3f} avg {avg:.4f} dtype {clip.buf.dtype}")
 
                 synth = Synth(dbg=self.dbg).from_clip(name, clip, **kwargs)
                 print("saving", path)
