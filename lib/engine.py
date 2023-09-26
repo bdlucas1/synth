@@ -368,6 +368,11 @@ class Clip:
         print(result.buf)
         return result
 
+    def concatenate(clips):
+        result = Clip().like(clips[0])
+        result.buf = np.concatenate([clip.buf for clip in clips])
+        return result
+
     def __or__(self, other):
         result = Clip()
         result.sample_rate = self.sample_rate
@@ -392,10 +397,70 @@ class Envelope:
         self.ts = ts
         self.vs = vs
 
-class Synth:
+class BaseSynth:
 
     def __init__(self, dbg=False):
         self.dbg = dbg
+        self.clips = {}
+
+    def get_clip(self, freq=None, duration=None, ph=False):
+
+        if freq is None: freq = self.base_fundamental
+        if duration is None: duration = self.base_duration
+
+        # already seen?
+        # doesn't handle portamento
+        if isinstance(freq, (int, float)) and (freq, duration) in self.clips:
+            return Clip().copy(self.clips[(freq, duration)])
+
+        # xxx sample rate?
+        clip = Clip()
+
+        # compute harmonics from self.harmonics either directly or by resampling
+        clip_dur, harmonics = self.get_harmonics(freq, duration, clip)
+
+        # compute theta, whose derivative is instantaneous frequency
+        n = clip.t2i(clip_dur)
+        if isinstance(freq, np.ndarray):
+            # variable frequency - "integrate" instantaneous frequency using cumsum
+            if len(freq) < n:
+                freq = np.concatenate([freq, np.full(n-len(freq), freq[-1])])
+            omega = np.full(n, clip_dur/n) * freq
+            theta = np.cumsum(omega)
+        else:
+            # optimized version for scalar frequency
+            theta = np.linspace(0, clip_dur, n, False) * freq
+
+        # combine harmonics
+        thetas = [theta * (k+1) for k in range(len(harmonics))]
+        #if ph: # pseudo-harmonics - needs fixing up after added support for pitch contours
+        #    thetas = [theta * p2f(round(f2p(theta/thetas[0])))*thetas[0] for theta in thetas]
+        clip.buf = sum(h * np.sin(2*np.pi*theta) for theta, h in zip(thetas, harmonics))
+
+        # clip if non-elastic
+        # this does nothing if duration > clip.duration.
+        # xxx is this ok? should be if we add notes as events instead of concatenating them
+        if not self.elastic:
+            if duration < clip.duration:
+                clip = clip.trimmed(0, clip.duration - duration)
+            ease_out = clip.interp_envelope([0, duration-self.ease_out, duration], [1, 1, 0]) ** 2
+            clip.apply_envelope(ease_out)
+
+        # debugging plots
+        if self.dbg:
+            ax = dbg.axs(1, f"{self.name} {freq:.1f} Hz, {duration:.1f} s")
+            clip.plot_buf(ax)
+            clip.get_envelope(normalize=False).plot_buf(ax)
+
+        # remember for future
+        if isinstance(freq, (int, float)):
+            self.clips[(freq, duration)] = clip
+            clip = Clip().copy(clip)
+
+        return clip
+
+
+class HarmonicSynth(BaseSynth):
 
     # harmonics is list of 
     def from_harmonics(self, name, harmonics):
@@ -407,37 +472,37 @@ class Synth:
         return self
 
     # xxx do the from_ things here and in Clip with subclasses??
-    def from_clip(self, name, clip, fundamental=None, elastic=True, ease_out=0.1):
+    def from_sample(self, name, sample, fundamental=None, elastic=True, ease_out=0.1):
         
         self.name = name
         self.elastic = elastic
         self.ease_out = ease_out
 
         # base info
-        self.base_clip = clip
-        self.base_duration = self.base_clip.duration
+        self.base_sample = sample
+        self.base_duration = self.base_sample.duration
         if fundamental == None:
-            fundamental = clip.get_fundamental()
+            fundamental = sample.get_fundamental()
             print(f"computed fundamental {fundamental:.1f}")
         self.base_fundamental = fundamental
 
-        # show base clip if desired
+        # show base sample if desired
         if self.dbg:
-            ax = dbg.axs(1, f"{name} base clip")
-            self.base_clip.plot_buf(ax)
-            envelope = self.base_clip.get_envelope(normalize=False)
+            ax = dbg.axs(1, f"{name} base sample")
+            self.base_sample.plot_buf(ax)
+            envelope = self.base_sample.get_envelope(normalize=False)
             envelope.plot_buf(ax)
             mx = max(envelope.buf)
 
         # padding avoids boundary artifacts (ringing?)
         padding = 0.2
-        clip = clip.padded(padding, padding)
+        sample = sample.padded(padding, padding)
 
         self.harmonics = []
         for h in range(1, 20):
     
             # get frequencies in this band
-            band = Clip().copy(clip)
+            band = Clip().copy(sample)
             lo = (h-0.5) * fundamental
             hi = (h+0.5) * fundamental
             print(f"band {lo:.1f} {hi:.1f}")
@@ -460,14 +525,8 @@ class Synth:
 
         return self
 
-    def get_clip(self, freq=None, duration=None, ph=False):
-
-        if freq is None: freq = self.base_fundamental
-        if duration is None: duration = self.base_duration
-
-        # xxx sample rate?
-        clip = Clip()
-
+    def get_harmonics(self, freq, duration, clip):
+        
         # compute harmonics from self.harmonics either directly or by resampling
         if self.elastic:
             # resample band envelopes to desired duration
@@ -490,42 +549,59 @@ class Synth:
             harmonics = [env.vs for env in self.harmonics]
             clip_dur = self.base_duration
 
-        # compute theta, whose derivative is instantaneous frequency
-        n = clip.t2i(clip_dur)
-        if isinstance(freq, np.ndarray):
-            # variable frequency - "integrate" instantaneous frequency using cumsum
-            if len(freq) < n:
-                freq = np.concatenate([freq, np.full(n-len(freq), freq[-1])])
-            omega = np.full(n, clip_dur/n) * freq
-            theta = np.cumsum(omega)
+        return clip_dur, harmonics
+
+
+
+class MultiSynth(BaseSynth):
+
+    def from_synths(self, name, synths):
+        self.name = name
+        self.synths = synths
+        self.elastic = self.synths[0].elastic
+        self.ease_out = sum(synth.ease_out for synth in synths) / len(synths)
+        self.base_duration = max(synth.base_duration for synth in synths)
+        self.harmonics = {} # map from freq to harmonics
+        return self
+
+    def get_harmonics(self, freq, duration, clip):
+
+        # portamento - use avg freq
+        if not isinstance(freq, (int, float)):
+            freq = sum(freq) / len(freq)
+
+        # already saw this one
+        if freq in self.harmonics:
+            return self.harmonics[freq]
+
+        # lo?
+        if freq < self.synths[0].base_fundamental:
+            result = self.synths[0].get_harmonics(freq, duration, clip)
+
+        # hi?
+        elif freq > self.synths[-1].base_fundamental:
+            result = self.synths[-1].get_harmonics(freq, duration, clip)
+
+        # interp
         else:
-            # optimized version for scalar frequency
-            theta = np.linspace(0, clip_dur, n, False) * freq
-
-        # combine harmonics
-        thetas = [theta * (k+1) for k in range(len(self.harmonics))]
-        #if ph: # pseudo-harmonics - needs fixing up after added support for pitch contours
-        #    thetas = [theta * p2f(round(f2p(theta/thetas[0])))*thetas[0] for theta in thetas]
-        clip.buf = sum(h * np.sin(2*np.pi*theta) for theta, h in zip(thetas, harmonics))
-
-        # clip if non-elastic
-        # this does nothing if duration > clip.duration.
-        # xxx is this ok? should be if we add notes as events instead of concatenating them
-        if not self.elastic:
-            if duration < clip.duration:
-                clip = clip.trimmed(0, clip.duration - duration)
-            ease_out = clip.interp_envelope([0, duration-self.ease_out, duration], [1, 1, 0]) ** 2
-            clip.apply_envelope(ease_out)
-
-        # debugging plots
-        if self.dbg:
-            ax = dbg.axs(1, f"{self.name} {freq:.1f} Hz, {duration:.1f} s")
-            clip.plot_buf(ax)
-            clip.get_envelope(normalize=False).plot_buf(ax)
-
-        return clip
-
-
+            for s1, s2 in zip(self.synths[:-1], self.synths[1:]):
+                if freq >= s1.base_fundamental and freq <= s2.base_fundamental:
+                    m2 = (freq - s1.base_fundamental) / (s2.base_fundamental - s1.base_fundamental)
+                    h1_dur, h1 = s1.get_harmonics(freq, duration, clip)
+                    h2_dur, h2 = s2.get_harmonics(freq, duration, clip)
+                    clip_dur = max(h1_dur, h2_dur)
+                    harmonics = []
+                    for h1, h2 in zip(h1, h2):
+                        if len(h1) < len(h2):
+                            h1 = np.pad(h1, (0, len(h2) - len(h1)))
+                        elif len(h2) < len(h1):
+                            h2 = np.pad(h2, (0, len(h1) - len(h2)))
+                        harmonics.append((1-m2)*h1 + m2*h2)
+                    result = clip_dur, harmonics
+                    break
+            
+        self.harmonics[freq] = result
+        return result
 
 #
 # samples
@@ -543,7 +619,7 @@ class Lib:
     def __str__(self):
         return self.name
 
-    def __call__(self, name):
+    def get_instrument(self, name):
         if not name in self.loaded:
             self.loaded[name] = self.load(name, **self.instruments[name])
         return self.loaded[name]
@@ -562,6 +638,20 @@ class SynthLib(Lib):
             elastic = False
         ),
 
+        "guitar_a2": kwargs(
+            sample_name = "guitar_a2",
+            elastic = False
+        ),
+
+        "guitar_a3": kwargs(
+            sample_name = "guitar_a3",
+            elastic = False
+        ),
+
+        "multi_guitar": kwargs(
+            synth_names = ["guitar_a2", "guitar_a3"]
+        ),
+
         "clarinet": kwargs(
             sample_name = "clarinet_a3",
             elastic = True
@@ -573,7 +663,7 @@ class SynthLib(Lib):
         ),
     }
 
-    def load(self, name, sample_name=None, harmonics=None, **kwargs):
+    def load(self, name, sample_name=None, harmonics=None, synth_names=None, **kwargs):
         if sample_name:
             instrument_cache = os.path.join(os.path.dirname(__file__), ".instruments")
             path = os.path.join(instrument_cache, f"{name}.npy")
@@ -583,16 +673,20 @@ class SynthLib(Lib):
             else:
                 sample_dn = os.path.join(os.path.dirname(__file__), "..", "samples")
                 sample_fn = os.path.join(sample_dn, f"{sample_name}.flac")
-                clip = Clip().read(sample_fn)
-                clip.buf /= max(abs(clip.buf))
-                synth = Synth(dbg=self.dbg).from_clip(name, clip, **kwargs)
+                sample = Clip().read(sample_fn)
+                sample.buf /= max(abs(sample.buf))
+                synth = HarmonicSynth(dbg=self.dbg).from_sample(name, sample, **kwargs)
                 print("saving", path)
                 if not os.path.exists(instrument_cache):
                     os.mkdir(instrument_cache)
                 np.save(path, np.array([synth]))
             return synth
         elif harmonics:
-            return Synth(dbg=self.dbg).from_harmonics(name, harmonics)
+            return HarmonicSynth(dbg=self.dbg).from_harmonics(name, harmonics)
+        elif synth_names:
+            synths = [self.get_instrument(synth_name) for synth_name in synth_names]
+            return MultiSynth(dbg=self.dbg).from_synths(name, synths)
+
 
 synth_lib = SynthLib("synth_lib")
 

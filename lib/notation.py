@@ -459,7 +459,7 @@ class Items:
             freq = engine.p2f(pitch - a4.pitch) * 440
 
             # compute clip
-            instrument = engine.synth_lib(atom.instrument)
+            instrument = engine.synth_lib.get_instrument(atom.instrument)
             ring = hasattr(atom, "ring") and atom.ring 
             dur_secs = atom.dur_secs if not ring else None
             atom.clip = instrument.get_clip(freq, dur_secs)

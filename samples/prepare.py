@@ -62,6 +62,7 @@ def prepare(name, dn, fn, trim_start, ease_start, trim_end, ease_end, lo=100, sa
 
 samples = {
     # dn, fn, trim_start, ease_start, trim_end, ease_end
+    "guitar_a2": ["guitar", "guitar_A2_very-long_forte_normal", 0.4, 0, 1.5, 0],
     "guitar_a3": ["guitar", "guitar_A3_very-long_forte_normal", 1.925, 0, 1, 1],
     "clarinet_a3": ["clarinet", "clarinet_A3_1_forte_normal", 0, 0, 0, 0.1],
     "saxophone_a3": ["saxophone", "saxophone_A3_15_forte_normal", 0.035, 0, 0.05, 0.05],
