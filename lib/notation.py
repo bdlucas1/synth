@@ -462,7 +462,7 @@ class Items:
             instrument = engine.synth_lib(atom.instrument)
             ring = hasattr(atom, "ring") and atom.ring 
             dur_secs = atom.dur_secs if not ring else None
-            atom.clip = instrument(freq, dur_secs)
+            atom.clip = instrument.get_clip(freq, dur_secs)
 
             # compute and apply volume
             volume = atom.volume

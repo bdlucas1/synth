@@ -460,7 +460,7 @@ class Synth:
 
         return self
 
-    def __call__(self, freq=None, duration=None, ph=False):
+    def get_clip(self, freq=None, duration=None, ph=False):
 
         if freq is None: freq = self.base_fundamental
         if duration is None: duration = self.base_duration
