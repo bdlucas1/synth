@@ -397,13 +397,21 @@ class Envelope:
         self.ts = ts
         self.vs = vs
 
+def with_vol(clip, vol):
+    mul = 100 ** (vol / 100) # v0->1, v50->10, v100->100
+    if isinstance(mul, np.ndarray) and len(mul) < len(clip):
+        mul = np.concatenate([mul, np.full(len(clip) - len(mul), mul[-1])])
+    clip = Clip().copy(clip)
+    clip.buf *= mul
+    return clip
+
 class BaseSynth:
 
     def __init__(self, dbg=False):
         self.dbg = dbg
         self.clips = {}
 
-    def get_clip(self, freq=None, duration=None, ph=False):
+    def get_clip(self, freq=None, vol=None, duration=None, ph=False):
 
         if freq is None: freq = self.base_fundamental
         if duration is None: duration = self.base_duration
@@ -411,7 +419,7 @@ class BaseSynth:
         # already seen?
         # doesn't handle portamento
         if isinstance(freq, (int, float)) and (freq, duration) in self.clips:
-            return Clip().copy(self.clips[(freq, duration)])
+            return with_vol(self.clips[(freq, duration)], vol)
 
         # xxx sample rate?
         clip = Clip()
@@ -457,7 +465,7 @@ class BaseSynth:
             self.clips[(freq, duration)] = clip
             clip = Clip().copy(clip)
 
-        return clip
+        return with_vol(clip, vol)
 
 
 class HarmonicSynth(BaseSynth):

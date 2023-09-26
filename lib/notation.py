@@ -124,13 +124,6 @@ class Atom:
             n = t2i(dur_secs)
             segments.append(np.interp(range(n), [0,n], [dv_start, dv_end]))
 
-        # extend if needed, e.g. for ringing notes
-        # xxx for now only for volume b/c requires clip to have already been computed to know len
-        if hasattr(self, "clip"):
-            shortfall = len(self.clip) - sum(len(segment) for segment in segments)
-            if shortfall > 0:
-                segments.append(np.full(shortfall, dv_end))
-
         # concatenate segments
         return np.concatenate(segments)
 
@@ -458,19 +451,17 @@ class Items:
                     pitch += atom.compute_contour(t2i, item_pc)
             freq = engine.p2f(pitch - a4.pitch) * 440
 
-            # compute clip
-            instrument = engine.synth_lib.get_instrument(atom.instrument)
-            ring = hasattr(atom, "ring") and atom.ring 
-            dur_secs = atom.dur_secs if not ring else None
-            atom.clip = instrument.get_clip(freq, dur_secs)
-
-            # compute and apply volume
+            # compute volume
             volume = atom.volume
             if hasattr(atom, "item_vcs"):
                 for item_vc in atom.item_vcs:
                     volume += atom.compute_contour(t2i, item_vc)
-            m = 100 ** (volume / 100) # v0->1, v50->10, v100->100
-            atom.clip.buf *= m
+
+            # compute clip
+            instrument = engine.synth_lib.get_instrument(atom.instrument)
+            ring = hasattr(atom, "ring") and atom.ring 
+            dur_secs = atom.dur_secs if not ring else None
+            atom.clip = instrument.get_clip(freq, volume, dur_secs)
 
         # compute end
         end = max(atom.t_secs + atom.clip.duration for atom in atoms) + pad/2
