@@ -102,7 +102,9 @@ class Clip:
     def write(self, f, fp=False, **kwargs):
         if fp:
             sf.write(f, self.buf, self.sample_rate, subtype="FLOAT")
-        elif False:
+        elif False: #f.endswith(".flac"):
+            # ok for flac
+            # mp3 differs for testing purposes, but maybe is ok - switch over?
             buf = self.buf * (2**15 - 1) / np.max(np.abs(self.buf))
             buf = buf.astype(np.int16)
             sf.write(f, buf, self.sample_rate)

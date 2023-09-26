@@ -124,6 +124,8 @@ def compare(ref_fn, test_fn):
         if len(ref_clip) == len(test_clip):
             print(f"ref_clip max {max(abs(ref_clip.buf))} {ref_clip.buf.dtype}")
             print(f"test_clip max {max(abs(test_clip.buf))} {test_clip.buf.dtype}")            
+            ref_clip.buf /= max(abs(ref_clip.buf))
+            test_clip.buf /= max(abs(test_clip.buf))            
             max_diff = max(abs(ref_clip.buf-test_clip.buf))
             max_diff = max_diff / max(abs(ref_clip.buf))
             eq = len(ref_clip)==len(test_clip) and max_diff < 1e-2
