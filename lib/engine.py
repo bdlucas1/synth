@@ -655,8 +655,8 @@ class SynthLib(Lib):
         ),
 
         "guitar": kwargs(
-            sample_name = "guitar_a3_f",
-            elastic = False
+            # best one so far - same as multi_guitar_p
+            synth_names = ["guitar_a2_p", "guitar_a3_p"],
         ),
 
         "guitar_a2_f": kwargs(
