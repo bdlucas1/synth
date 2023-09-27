@@ -107,7 +107,7 @@ class Test:
 
     def test16():
         lick = S(a2/2, cs, e, a)
-        return S(guitar, lick, multi_guitar, lick)
+        return S(guitar, lick, multi_guitar_f, lick)
 
 
 def compare(ref_fn, test_fn):

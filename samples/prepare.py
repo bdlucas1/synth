@@ -4,6 +4,8 @@ import os
 
 def prepare(name, dn, fn, trim_start, ease_start, trim_end, ease_end, lo=100, save=True, dbg=True):
         
+    print("preparing", name)
+
     # get clip from library
     zipfn = f"/Users/bdlucas1/Downloads/all-samples/{dn}.zip"
     f = zipfile.ZipFile(zipfn, 'r').open(f"{fn}.mp3")
@@ -57,20 +59,28 @@ def prepare(name, dn, fn, trim_start, ease_start, trim_end, ease_end, lo=100, sa
         fn = os.path.join(os.path.dirname(__file__), f"{name}.flac")
         clip.write(fn)
 
+    if dbg:
+        clip.play()
+
     return clip
 
 
 samples = {
     # dn, fn, trim_start, ease_start, trim_end, ease_end
-    "guitar_a2": ["guitar", "guitar_A2_very-long_forte_normal", 0.4, 0, 1.5, 0],
-    "guitar_a3": ["guitar", "guitar_A3_very-long_forte_normal", 1.925, 0, 1, 1],
+    "guitar_a2_f": ["guitar", "guitar_A2_very-long_forte_normal", 0.4, 0, 1.5, 0],
+    "guitar_a3_f": ["guitar", "guitar_A3_very-long_forte_normal", 1.925, 0, 1, 1],
+    "guitar_a2_p": ["guitar", "guitar_A2_very-long_piano_normal", 0.195, 0, 0.5, 0],
+    "guitar_a3_p": ["guitar", "guitar_A3_very-long_piano_normal", 0.196, 0, 0, 0],
     "clarinet_a3": ["clarinet", "clarinet_A3_1_forte_normal", 0, 0, 0, 0.1],
     "saxophone_a3": ["saxophone", "saxophone_A3_15_forte_normal", 0.035, 0, 0.05, 0.05],
 }
 
 def prepare_all():
-    for sample, args in samples.items():
-        prepare(sample, *args, dbg=False)
+    for name, args in samples.items():
+        prepare(name, *args, dbg=False)
+
+def prepare_one(name):
+    prepare(name, *samples[name], dbg=True)
 
 if __name__ == "__main__":
     prepare_all()

@@ -655,22 +655,38 @@ class SynthLib(Lib):
         ),
 
         "guitar": kwargs(
-            sample_name = "guitar_a3",
+            sample_name = "guitar_a3_f",
             elastic = False
         ),
 
-        "guitar_a2": kwargs(
-            sample_name = "guitar_a2",
+        "guitar_a2_f": kwargs(
+            sample_name = "guitar_a2_f",
             elastic = False
         ),
 
-        "guitar_a3": kwargs(
-            sample_name = "guitar_a3",
+        "guitar_a3_f": kwargs(
+            sample_name = "guitar_a3_f",
             elastic = False
         ),
 
-        "multi_guitar": kwargs(
-            synth_names = ["guitar_a2", "guitar_a3"]
+        "guitar_a2_p": kwargs(
+            sample_name = "guitar_a2_p",
+            ease_out = 0.01,
+            elastic = False
+        ),
+
+        "guitar_a3_p": kwargs(
+            sample_name = "guitar_a3_p",
+            ease_out = 0.01,
+            elastic = False
+        ),
+
+        "multi_guitar_f": kwargs(
+            synth_names = ["guitar_a2_f", "guitar_a3_f"]
+        ),
+
+        "multi_guitar_p": kwargs(
+            synth_names = ["guitar_a2_p", "guitar_a3_p"],
         ),
 
         "clarinet": kwargs(
