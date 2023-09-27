@@ -71,7 +71,10 @@ samples = {
     "guitar_a3_f": ["guitar", "guitar_A3_very-long_forte_normal", 1.925, 0, 1, 1],
     "guitar_a2_p": ["guitar", "guitar_A2_very-long_piano_normal", 0.195, 0, 0.5, 0],
     "guitar_a3_p": ["guitar", "guitar_A3_very-long_piano_normal", 0.196, 0, 0, 0],
-    "clarinet_a3": ["clarinet", "clarinet_A3_1_forte_normal", 0, 0, 0, 0.1],
+    "clarinet_a3_f": ["clarinet", "clarinet_A3_1_forte_normal", 0, 0, 0, 0.1],
+    "clarinet_a3_p": ["clarinet", "clarinet_A3_1_piano_normal", 0, 0, 0, 0.1],
+    "clarinet_a5_f": ["clarinet", "clarinet_A5_1_forte_normal", 0, 0, 0, 0.1],
+    "clarinet_a5_p": ["clarinet", "clarinet_A5_1_piano_normal", 0, 0, 0, 0.1],
     "saxophone_a3": ["saxophone", "saxophone_A3_15_forte_normal", 0.035, 0, 0.05, 0.05],
 }
 

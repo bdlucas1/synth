@@ -450,9 +450,9 @@ class BaseSynth:
 
 
     # get clip of given freq, vol, dur, using memo
-    def get_clip(self, freq=None, vol=None, dur=None, ph=False):
+    def get_clip(self, freq, vol, dur, ph=False):
 
-        if freq is None: freq = self.base_fundamental
+        # used for "ring" for non-elastic instruments (e.g. guitar)
         if dur is None: dur = self.base_dur
 
         # consult memo
@@ -582,7 +582,7 @@ class MultiSynth(BaseSynth):
         self.elastic = self.synths[0].elastic
         self.ease_out = sum(synth.ease_out for synth in synths) / len(synths)
         self.base_dur = max(synth.base_dur for synth in synths)
-        self.harmonics = {} # map from freq to harmonics
+        self.harmonics = {} # map from (freq,dur) to harmonics
         return self
 
     def get_harmonics(self, freq, dur, clip):
@@ -592,7 +592,7 @@ class MultiSynth(BaseSynth):
             freq = sum(freq) / len(freq)
 
         # already saw this one
-        if freq in self.harmonics:
+        if (freq, dur) in self.harmonics:
             return self.harmonics[freq]
 
         # lo?
@@ -621,7 +621,7 @@ class MultiSynth(BaseSynth):
                     result = clip_dur, harmonics
                     break
             
-        self.harmonics[freq] = result
+        self.harmonics[(freq, dur)] = result
         return result
 
 #
@@ -690,8 +690,36 @@ class SynthLib(Lib):
         ),
 
         "clarinet": kwargs(
-            sample_name = "clarinet_a3",
+            sample_name = "clarinet_a3_f",
             elastic = True
+        ),
+
+        "clarinet_a3_f": kwargs(
+            sample_name = "clarinet_a3_f",
+            elastic = True
+        ),
+
+        "clarinet_a5_f": kwargs(
+            sample_name = "clarinet_a5_f",
+            elastic = True
+        ),
+
+        "clarinet_a3_p": kwargs(
+            sample_name = "clarinet_a3_p",
+            elastic = True
+        ),
+
+        "clarinet_a5_p": kwargs(
+            sample_name = "clarinet_a5_p",
+            elastic = True
+        ),
+
+        "multi_clarinet_f": kwargs(
+            synth_names = ["clarinet_a3_f", "clarinet_a5_f"]
+        ),
+
+        "multi_clarinet_p": kwargs(
+            synth_names = ["clarinet_a3_p", "clarinet_a5_p"]
         ),
 
         "saxophone": kwargs(
