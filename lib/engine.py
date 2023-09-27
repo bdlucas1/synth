@@ -464,7 +464,7 @@ class BaseSynth:
         else:
             without_vol = self.compute_clip(freq, dur)
 
-        # compute and apply volume
+        # compute and apply vol
         mul = 100 ** (vol / 100) # v0->1, v50->10, v100->100
         if isinstance(mul, np.ndarray) and len(mul) < len(without_vol):
             mul = np.concatenate([mul, np.full(len(without_vol) - len(mul), mul[-1])])

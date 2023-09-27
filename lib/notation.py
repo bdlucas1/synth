@@ -310,7 +310,7 @@ class Items:
                         pitch_dbg.append(str(item.pitch))
 
                     # compute item_vcs
-                    vol_dbg = [str(item.volume)]
+                    vol_dbg = [str(item.vol)]
                     if len(item.vcs):
                         item.item_vcs = []
                         item.exclude.add("item_vcs")
@@ -426,7 +426,7 @@ class Items:
             time = (4,4),
             transpose = 0,
             instrument = "sin",
-            volume = 50,
+            vol = 50,
             vcs = [],
             pcs = [],
             pitch = c4.pitch, # middle c
@@ -451,17 +451,17 @@ class Items:
                     pitch += atom.compute_contour(t2i, item_pc)
             freq = engine.p2f(pitch - a4.pitch) * 440
 
-            # compute volume
-            volume = atom.volume
+            # compute vol
+            vol = atom.vol
             if hasattr(atom, "item_vcs"):
                 for item_vc in atom.item_vcs:
-                    volume += atom.compute_contour(t2i, item_vc)
+                    vol += atom.compute_contour(t2i, item_vc)
 
             # compute clip
             instrument = engine.synth_lib.get_instrument(atom.instrument)
             ring = hasattr(atom, "ring") and atom.ring 
             dur_secs = atom.dur_secs if not ring else None
-            atom.clip = instrument.get_clip(freq, volume, dur_secs)
+            atom.clip = instrument.get_clip(freq, vol, dur_secs)
 
         # compute end
         end = max(atom.t_secs + atom.clip.dur for atom in atoms) + pad/2
@@ -528,10 +528,10 @@ def std_tuning():
             b[x+"s"+str(i)] = Atom(pitch =i*12 + p + 1)
             b[x+"f"+str(i)] = Atom(pitch = i*12 + p - 1)
 
-def std_volume():
+def std_vol():
     b = builtins.__dict__
     for i in range(100):
-        b["v"+str(i)] = Atom(volume = i)
+        b["v"+str(i)] = Atom(vol = i)
 
 # first arg is subdivision (e.g. 4 for quarter), second arg is bpm (e.g. 60 for 60 bpm)
 def tempo(num, den):
@@ -572,7 +572,7 @@ def std_defs():
     builtins.ring = Atom(ring = True)
     builtins.stop = Atom(ring = False)
     std_tuning()
-    std_volume()
+    std_vol()
     std_instruments(engine.synth_lib)
 
 std_defs()
