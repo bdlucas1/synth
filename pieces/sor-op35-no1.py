@@ -14,7 +14,7 @@ Ip = I > [8]
 port = lambda note: [(7/8*note.dur_units,0), (1/8*note.dur_units,0,-2)]
 
 P(
-    guitar,
+    multi_guitar,
     tempo(4,120),
     time(4,4),
     transpose(-12),
@@ -34,18 +34,20 @@ P(
     ),
 
     S(
-        ~Ip,c4/1,            ~Ip,t/(2,4),e/4,   ~Ip,f/1,             ~Ip,g/2,r/4,f,
-        ~Ip,e4/1,            ~Ip,t/(2,4),e/4,   ~Ips,f/2, g/2,       ~Ipns,-c/4,+g,e,c,
+        v45,
+        ~I,c4/1,            ~Ip,t/(2,4),e/4,    ~Ip,f/1,             ~Ip,g/2,r/4,f,
+        ~Ip,e4/1,            ~Ip,t/(2,4),e/4,   ~Ips,f/2, g/2,       ~I,-c/4%ring,+g,e,c,
 
         ~Ipns,b3/4,+g,-c,+g, ~Ip,-b/1,          ~Ipns,b3/4,+g,-c,+g, ~Ip,-b/1,
-        ~Ipns,g3/4,+g,-a,+g, ~Ipns,-b,+g,-c,+g, ~Ips,d/2,d,          ~Ip,-g/1,
+        ~Ipns,g3/4,+g,-a,+g, ~Ipns,-b,+g,-c,+g, ~Ips,d/2,d,          ~I,-g/1,
 
         ~Ipns,e4/4,g,-c,+g,  ~Ipns,d,g,-b,+g,   ~Ipns,-c,+g,e,g,     ~Ip,d/1,
         ~Ipns,e4/4,g,-c,+g,  ~Ipns,d,g,-b,+g,   ~Ipns,-c,+g,e,g,     ~Ipns,g,+g,f,d,
 
-        ~Ip,c4/1,            ~Ip,e,             ~Ip,f,               ~Ips,g/2,f,
-        ~Ip,e4/1,            ~Ip,f,             ~Ips,g/2,-g/2,       I,+c/4>-10,P(e>-8,g>-8),-c%ring
+        ~I,c4/1,            ~Ip,e,              ~Ip,f,               ~Ips,g/2,f,
+        ~I,e4/1,            ~Ip,f,              ~Ips,g/2,-g/2,       I,+c/4>-10,P(e>-8,g>-8),-c%ring
     )
-
+    
 ).write().play()
+#).render()
 
