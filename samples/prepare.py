@@ -24,7 +24,7 @@ def prepare(name, dn, fn, trim_start, ease_start, trim_end, ease_end, lo=100, sa
 
     # ease in/out
     # xxx make exponent a parameter?
-    end = clip.duration
+    end = clip.dur
     ease = clip.interp_envelope([0, ease_start, end-ease_end, end], [0, 1, 1, 0]) ** 2
     clip.apply_envelope(ease)
 
@@ -44,7 +44,7 @@ def prepare(name, dn, fn, trim_start, ease_start, trim_end, ease_end, lo=100, sa
         clip.plot_buf(ax_start)
         envelope.plot_buf(ax_start)
 
-        ax_end.set_xlim(clip.duration - 0.1, clip.duration)
+        ax_end.set_xlim(clip.dur - 0.1, clip.dur)
         clip.plot_buf(ax_end)
         envelope.plot_buf(ax_end)
 
@@ -70,7 +70,7 @@ samples = {
 
 def prepare_all():
     for sample, args in samples.items():
-        prepare(sample, *args)
+        prepare(sample, *args, dbg=False)
 
 if __name__ == "__main__":
     prepare_all()

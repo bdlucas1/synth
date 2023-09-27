@@ -86,9 +86,9 @@ class Clip:
         self.dbg = dbg
         self.zeros()
 
-    def zeros(self, duration=0, sample_rate=44100):
+    def zeros(self, dur=0, sample_rate=44100):
         self.sample_rate = sample_rate
-        n = self.t2i(duration)
+        n = self.t2i(dur)
         self._buf = np.zeros(n)
         return self
 
@@ -157,10 +157,10 @@ class Clip:
 
     @property
     def ts(self):
-        return np.linspace(0, self.duration, len(self))
+        return np.linspace(0, self.dur, len(self))
 
     @property
-    def duration(self):
+    def dur(self):
         return len(self.buf) / self.sample_rate
 
     def __len__(self):
@@ -404,7 +404,7 @@ class BaseSynth:
         self.dbg = dbg
         self.clips = {}
 
-    # compute clip of given freqency (may be frequency contour) and duration
+    # compute clip of given freqency (may be frequency contour) and dur
     def compute_clip(self, freq, dur):
 
         # xxx sample rate?
@@ -432,11 +432,11 @@ class BaseSynth:
         clip.buf = sum(h * np.sin(2*np.pi*theta) for theta, h in zip(thetas, harmonics))
 
         # clip if non-elastic
-        # this does nothing if dur > clip.duration.
+        # this does nothing if dur > clip.dur.
         # xxx is this ok? should be if we add notes as events instead of concatenating them
         if not self.elastic:
-            if dur < clip.duration:
-                clip = clip.trimmed(0, clip.duration - dur)
+            if dur < clip.dur:
+                clip = clip.trimmed(0, clip.dur - dur)
             ease_out = clip.interp_envelope([0, dur-self.ease_out, dur], [1, 1, 0]) ** 2
             clip.apply_envelope(ease_out)
 
@@ -453,7 +453,7 @@ class BaseSynth:
     def get_clip(self, freq=None, vol=None, dur=None, ph=False):
 
         if freq is None: freq = self.base_fundamental
-        if dur is None: dur = self.base_duration
+        if dur is None: dur = self.base_dur
 
         # consult memo
         num = (int,float)
@@ -488,7 +488,7 @@ class HarmonicSynth(BaseSynth):
         self.harmonics = []
         for h in harmonics:
             self.harmonics.append(Envelope([0,0.1,0.9,1], [0,h,h,0]))
-        self.base_duration = 1
+        self.base_dur = 1
         self.elastic = True
         return self
 
@@ -501,7 +501,7 @@ class HarmonicSynth(BaseSynth):
 
         # base info
         self.base_sample = sample
-        self.base_duration = self.base_sample.duration
+        self.base_dur = self.base_sample.dur
         if fundamental == None:
             fundamental = sample.get_fundamental()
             print(f"computed fundamental {fundamental:.1f}")
@@ -546,13 +546,13 @@ class HarmonicSynth(BaseSynth):
 
         return self
 
-    def get_harmonics(self, freq, duration, clip):
+    def get_harmonics(self, freq, dur, clip):
         
         # compute harmonics from self.harmonics either directly or by resampling
         if self.elastic:
-            # resample band envelopes to desired duration
-            d_in = self.base_duration
-            d_out = duration
+            # resample band envelopes to desired dur
+            d_in = self.base_dur
+            d_out = dur
             # f maps output timestamps back to corresponding input timestamp
             # f(0) = 0         map output at start to input at start
             # f(d_out) = d_in  map output at end to input at end
@@ -564,11 +564,11 @@ class HarmonicSynth(BaseSynth):
             ts_out = np.linspace(0, d_out, clip.t2i(d_out))  # range of desired output timestamps
             ts_in = np.array([f(t) for t in ts_out])         # corresponding input timestamps via f
             harmonics = [np.interp(ts_in, env.ts, env.vs) for env in self.harmonics]
-            clip_dur = duration
+            clip_dur = dur
         else:
             # just copy self.harmonics
             harmonics = [env.vs for env in self.harmonics]
-            clip_dur = self.base_duration
+            clip_dur = self.base_dur
 
         return clip_dur, harmonics
 
@@ -581,11 +581,11 @@ class MultiSynth(BaseSynth):
         self.synths = synths
         self.elastic = self.synths[0].elastic
         self.ease_out = sum(synth.ease_out for synth in synths) / len(synths)
-        self.base_duration = max(synth.base_duration for synth in synths)
+        self.base_dur = max(synth.base_dur for synth in synths)
         self.harmonics = {} # map from freq to harmonics
         return self
 
-    def get_harmonics(self, freq, duration, clip):
+    def get_harmonics(self, freq, dur, clip):
 
         # portamento - use avg freq
         if not isinstance(freq, (int, float)):
@@ -597,19 +597,19 @@ class MultiSynth(BaseSynth):
 
         # lo?
         if freq < self.synths[0].base_fundamental:
-            result = self.synths[0].get_harmonics(freq, duration, clip)
+            result = self.synths[0].get_harmonics(freq, dur, clip)
 
         # hi?
         elif freq > self.synths[-1].base_fundamental:
-            result = self.synths[-1].get_harmonics(freq, duration, clip)
+            result = self.synths[-1].get_harmonics(freq, dur, clip)
 
         # interp
         else:
             for s1, s2 in zip(self.synths[:-1], self.synths[1:]):
                 if freq >= s1.base_fundamental and freq <= s2.base_fundamental:
                     m2 = (freq - s1.base_fundamental) / (s2.base_fundamental - s1.base_fundamental)
-                    h1_dur, h1 = s1.get_harmonics(freq, duration, clip)
-                    h2_dur, h2 = s2.get_harmonics(freq, duration, clip)
+                    h1_dur, h1 = s1.get_harmonics(freq, dur, clip)
+                    h2_dur, h2 = s2.get_harmonics(freq, dur, clip)
                     clip_dur = max(h1_dur, h2_dur)
                     harmonics = []
                     for h1, h2 in zip(h1, h2):

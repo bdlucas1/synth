@@ -160,7 +160,7 @@ class Atom:
         # merge other
         if other:
 
-            # special cases for /n durations
+            # special cases for /n durs
             if isinstance(other, (float, int)):
                 other = Atom(dur_units = 1 / other)
             elif isinstance(other, tuple):
@@ -294,7 +294,7 @@ class Items:
                     # time jitter
                     item.t_secs += item.jitter("t_secs")                    
 
-                    # compute durations
+                    # compute durs
                     item.dur_secs = item.units2secs(item.dur_units)
                     item.dur_bars = item.units2bars(item.dur_units)
 
@@ -464,10 +464,10 @@ class Items:
             atom.clip = instrument.get_clip(freq, volume, dur_secs)
 
         # compute end
-        end = max(atom.t_secs + atom.clip.duration for atom in atoms) + pad/2
+        end = max(atom.t_secs + atom.clip.dur for atom in atoms) + pad/2
     
         # overlay all clips
-        clip = engine.Clip().zeros(duration=end)
+        clip = engine.Clip().zeros(dur=end)
         for atom in atoms:
             i = clip.t2i(atom.t_secs)
             clip.buf[i : i+len(atom.clip.buf)] += atom.clip.buf
