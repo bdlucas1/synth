@@ -723,8 +723,8 @@ HarmonicSynth("sin", harmonics=[1])
 # guitar
 #
 
-HarmonicSynth("guitar_a2_f", sample_name="guitar_a2_f", elastic=False)
-HarmonicSynth("guitar_a3_f", sample_name="guitar_a3_f", elastic=False)
+HarmonicSynth("guitar_a2_f", sample_name="guitar_a2_f", ease_out=0.01, elastic=False)
+HarmonicSynth("guitar_a3_f", sample_name="guitar_a3_f", ease_out=0.01, elastic=False)
 HarmonicSynth("guitar_a2_p", sample_name="guitar_a2_p", ease_out=0.01, elastic=False)
 HarmonicSynth("guitar_a3_p", sample_name="guitar_a3_p", ease_out=0.01, elastic=False)
 
@@ -733,8 +733,8 @@ MultiFreqSynth("multi_guitar_p", synths=[guitar_a2_p, guitar_a3_p])
 
 MultiVolSynth("multi_vol_guitar", synths=[(50,multi_guitar_p), (70,multi_guitar_f)])
 
-register("guitar", multi_guitar_p)
-#register("guitar", multi_vol_guitar)
+#register("guitar", multi_guitar_p)
+register("guitar", multi_vol_guitar)
 
 #
 # clarinet
@@ -750,8 +750,8 @@ MultiFreqSynth("multi_clarinet_p", synths=[clarinet_a3_p, clarinet_a5_p])
         
 MultiVolSynth("multi_vol_clarinet", synths=[(30,multi_clarinet_p), (70,multi_clarinet_f)])
 
-register("clarinet", clarinet_a3_f)
-#register("clarinet", multi_vol_clarinet)
+#register("clarinet", clarinet_a3_f)
+register("clarinet", multi_vol_clarinet)
 
 #
 # saxophone

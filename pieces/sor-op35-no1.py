@@ -2,10 +2,10 @@ import notation
 
 # define stress (accent) patterns that apply to succeeding notes of measure
 # p primary, n none, s secondary
-Ipns = I > [8, 0, 5]
-Ipp = I > [8, 8]
-Ips = I > [8, 5]
-Ip = I > [8]
+Ipns = I > [10, 0, 5]
+Ipp = I > [10, 10]
+Ips = I > [10, 5]
+Ip = I > [10]
 
 # portamento of -2 semitones for the last 1/16 of a 1/2 note
 #port = [(1/2-1/16,0), (1/16,0,-2)]
