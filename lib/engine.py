@@ -397,12 +397,12 @@ class Envelope:
         self.ts = ts
         self.vs = vs
 
-
 class BaseSynth:
 
-    def __init__(self, dbg=False):
-        self.dbg = dbg
+    def __init__(self, name, dbg=False):
+        self.dbg = False # xxxx
         self.clips = {}
+        register(name, self)
 
     # compute clip of given freqency (may be frequency contour) and dur
     def compute_clip(self, freq, dur):
@@ -483,35 +483,69 @@ class BaseSynth:
 
 class HarmonicSynth(BaseSynth):
 
-    # harmonics is list of 
-    def from_harmonics(self, name, harmonics):
-        self.harmonics = []
-        for h in harmonics:
-            self.harmonics.append(Envelope([0,0.1,0.9,1], [0,h,h,0]))
-        self.base_dur = 1
-        self.elastic = True
-        return self
+    def __init__(self, name, sample_name=None, harmonics=None, elastic=True, ease_out=0.1):
 
-    # xxx do the from_ things here and in Clip with subclasses??
-    def from_sample(self, name, sample, fundamental=None, elastic=True, ease_out=0.1):
-        
+        super().__init__(name)
+
         self.name = name
+        self.sample_name = sample_name
         self.elastic = elastic
         self.ease_out = ease_out
 
+        # harmonics supplied, remember them
+        if harmonics is not None:
+            self.harmonics = []
+            for h in harmonics:
+                self.harmonics.append(Envelope([0,0.1,0.9,1], [0,h,h,0]))
+            self.base_dur = 1
+            self.elastic = True
+            
+    def save(self, name):
+        instrument_cache = os.path.join(os.path.dirname(__file__), ".instruments")
+        path = os.path.join(instrument_cache, f"{name}.npy")
+        print("saving", path)
+        if not os.path.exists(instrument_cache):
+            os.mkdir(instrument_cache)
+        np.save(path, np.array([self.__dict__]))
+
+    def load(self, name):
+        instrument_cache = os.path.join(os.path.dirname(__file__), ".instruments")
+        path = os.path.join(instrument_cache, f"{name}.npy")
+        if os.path.exists(path):
+            print("loading", path)
+            self.__dict__ = np.load(path, allow_pickle = True)[0]
+            return True
+        else:
+            return False
+
+    # xxx do the from_ things here and in Clip with subclasses??
+    def realize(self):
+        
+        # already realized?
+        if hasattr(self, "harmonics"):
+            return
+
+        # restorable?
+        if self.load(self.name):
+            return
+
+        # read sample
+        sample_dn = os.path.join(os.path.dirname(__file__), "..", "samples")
+        sample_fn = os.path.join(sample_dn, f"{self.sample_name}.flac")
+        sample = Clip().read(sample_fn)
+        sample.buf /= max(abs(sample.buf))
+
         # base info
-        self.base_sample = sample
-        self.base_dur = self.base_sample.dur
-        if fundamental == None:
-            fundamental = sample.get_fundamental()
-            print(f"computed fundamental {fundamental:.1f}")
-        self.base_fundamental = fundamental
+        # xxx allow fundamental to be supplied on instantiation?
+        self.base_dur = sample.dur
+        self.base_fundamental = sample.get_fundamental()
+        print(f"computed fundamental {self.base_fundamental:.1f}")
 
         # show base sample if desired
         if self.dbg:
             ax = dbg.axs(1, f"{name} base sample")
-            self.base_sample.plot_buf(ax)
-            envelope = self.base_sample.get_envelope(normalize=False)
+            sample.plot_buf(ax)
+            envelope = sample.get_envelope(normalize=False)
             envelope.plot_buf(ax)
             mx = max(envelope.buf)
 
@@ -524,8 +558,8 @@ class HarmonicSynth(BaseSynth):
     
             # get frequencies in this band
             band = Clip().copy(sample)
-            lo = (h-0.5) * fundamental
-            hi = (h+0.5) * fundamental
+            lo = (h-0.5) * self.base_fundamental
+            hi = (h+0.5) * self.base_fundamental
             print(f"band {lo:.1f} {hi:.1f}")
             filter = band.filter(lo, hi)
             band = band.filtered(filter)
@@ -533,7 +567,7 @@ class HarmonicSynth(BaseSynth):
             # get envelope for this band
             # xxx explore these parameters more
             softness = 5
-            cutoff = fundamental - softness
+            cutoff = self.base_fundamental - softness
             envelope = band.get_envelope(normalize=False, cutoff=cutoff, softness=softness)
             envelope = envelope.trimmed(padding, padding)
             self.harmonics.append(Envelope(envelope.ts, envelope.buf))
@@ -544,10 +578,15 @@ class HarmonicSynth(BaseSynth):
                 band.trimmed(padding, padding).plot_buf(ax)
                 envelope.plot_buf(ax)
 
+        self.save(self.name)
         return self
 
     def get_harmonics(self, freq, dur, clip):
         
+        # get harmonics from sample if not already supplied
+        if not hasattr(self, "harmonics") and hasattr(self, "sample_name"):
+            self.realize()
+
         # compute harmonics from self.harmonics either directly or by resampling
         if self.elastic:
             # resample band envelopes to desired dur
@@ -572,20 +611,25 @@ class HarmonicSynth(BaseSynth):
 
         return clip_dur, harmonics
 
-
-
 class MultiSynth(BaseSynth):
 
-    def from_synths(self, name, synths):
+    def __init__(self, name, synths):
+        super().__init__(name)
         self.name = name
         self.synths = synths
-        self.elastic = self.synths[0].elastic
-        self.ease_out = sum(synth.ease_out for synth in synths) / len(synths)
-        self.base_dur = max(synth.base_dur for synth in synths)
-        self.harmonics = {} # map from (freq,dur) to harmonics
-        return self
 
     def get_harmonics(self, freq, dur, clip):
+
+        # xxx realizes all synths even if we only use one
+        # xxx make this auto?
+        for synth in self.synths:
+            synth.realize()
+
+        # parameters
+        self.elastic = self.synths[0].elastic
+        self.ease_out = sum(synth.ease_out for synth in self.synths) / len(self.synths)
+        self.base_dur = max(synth.base_dur for synth in self.synths)
+        self.harmonics = {} # map from (freq,dur) to harmonics
 
         # portamento - use avg freq
         if not isinstance(freq, (int, float)):
@@ -625,133 +669,38 @@ class MultiSynth(BaseSynth):
         return result
 
 #
-# samples
+# instrument registry
 #
 
-def kwargs(**kwargs): return kwargs
+instruments = {}
 
-class Lib:
+def register(name, instrument):
+    instruments[name] = instrument
+    globals()[name] = instrument
 
-    def __init__(self, name):
-        self.dbg = False
-        self.loaded = {}
-        self.name = name
-            
-    def __str__(self):
-        return self.name
+#
+# define and register instruments
+#
 
-    def get_instrument(self, name):
-        if not name in self.loaded:
-            self.loaded[name] = self.load(name, **self.instruments[name])
-        return self.loaded[name]
+HarmonicSynth("sin", harmonics=[1])
 
+HarmonicSynth("guitar_a2_f", sample_name="guitar_a2_f", elastic=False)
+HarmonicSynth("guitar_a3_f", sample_name="guitar_a3_f", elastic=False)
+HarmonicSynth("guitar_a2_p", sample_name="guitar_a2_p", ease_out=0.01, elastic=False)
+HarmonicSynth("guitar_a3_p", sample_name="guitar_a3_p", ease_out=0.01, elastic=False)
 
-class SynthLib(Lib):
+MultiSynth("multi_guitar_f", synths=[guitar_a2_f, guitar_a3_f])
+MultiSynth("multi_guitar_p", synths=[guitar_a2_p, guitar_a3_p])
 
-    instruments = {
+register("guitar", multi_guitar_p)
 
-        "sin": kwargs(
-            harmonics = [1]
-        ),
+HarmonicSynth("clarinet_a3_f", sample_name="clarinet_a3_f", elastic=True)
+HarmonicSynth("clarinet_a5_f", sample_name="clarinet_a5_f", elastic=True)
+HarmonicSynth("clarinet_a3_p", sample_name="clarinet_a3_p", elastic=True)
+HarmonicSynth("clarinet_a5_p", sample_name="clarinet_a5_p", elastic=True)
 
-        "guitar": kwargs(
-            # best one so far - same as multi_guitar_p
-            synth_names = ["guitar_a2_p", "guitar_a3_p"],
-        ),
-
-        "guitar_a2_f": kwargs(
-            sample_name = "guitar_a2_f",
-            elastic = False
-        ),
-
-        "guitar_a3_f": kwargs(
-            sample_name = "guitar_a3_f",
-            elastic = False
-        ),
-
-        "guitar_a2_p": kwargs(
-            sample_name = "guitar_a2_p",
-            ease_out = 0.01,
-            elastic = False
-        ),
-
-        "guitar_a3_p": kwargs(
-            sample_name = "guitar_a3_p",
-            ease_out = 0.01,
-            elastic = False
-        ),
-
-        "multi_guitar_f": kwargs(
-            synth_names = ["guitar_a2_f", "guitar_a3_f"]
-        ),
-
-        "multi_guitar_p": kwargs(
-            synth_names = ["guitar_a2_p", "guitar_a3_p"],
-        ),
-
-        "clarinet": kwargs(
-            sample_name = "clarinet_a3_f",
-            elastic = True
-        ),
-
-        "clarinet_a3_f": kwargs(
-            sample_name = "clarinet_a3_f",
-            elastic = True
-        ),
-
-        "clarinet_a5_f": kwargs(
-            sample_name = "clarinet_a5_f",
-            elastic = True
-        ),
-
-        "clarinet_a3_p": kwargs(
-            sample_name = "clarinet_a3_p",
-            elastic = True
-        ),
-
-        "clarinet_a5_p": kwargs(
-            sample_name = "clarinet_a5_p",
-            elastic = True
-        ),
-
-        "multi_clarinet_f": kwargs(
-            synth_names = ["clarinet_a3_f", "clarinet_a5_f"]
-        ),
-
-        "multi_clarinet_p": kwargs(
-            synth_names = ["clarinet_a3_p", "clarinet_a5_p"]
-        ),
-
-        "saxophone": kwargs(
-            sample_name = "saxophone_a3",
-            elastic = True
-        ),
-    }
-
-    def load(self, name, sample_name=None, harmonics=None, synth_names=None, **kwargs):
-        if sample_name:
-            instrument_cache = os.path.join(os.path.dirname(__file__), ".instruments")
-            path = os.path.join(instrument_cache, f"{name}.npy")
-            if os.path.exists(path):
-                print("loading", path)
-                synth = np.load(path, allow_pickle = True)[0]                
-            else:
-                sample_dn = os.path.join(os.path.dirname(__file__), "..", "samples")
-                sample_fn = os.path.join(sample_dn, f"{sample_name}.flac")
-                sample = Clip().read(sample_fn)
-                sample.buf /= max(abs(sample.buf))
-                synth = HarmonicSynth(dbg=self.dbg).from_sample(name, sample, **kwargs)
-                print("saving", path)
-                if not os.path.exists(instrument_cache):
-                    os.mkdir(instrument_cache)
-                np.save(path, np.array([synth]))
-            return synth
-        elif harmonics:
-            return HarmonicSynth(dbg=self.dbg).from_harmonics(name, harmonics)
-        elif synth_names:
-            synths = [self.get_instrument(synth_name) for synth_name in synth_names]
-            return MultiSynth(dbg=self.dbg).from_synths(name, synths)
-
-
-synth_lib = SynthLib("synth_lib")
-
+MultiSynth("multi_clarinet_f", synths=[clarinet_a3_f, clarinet_a5_f])
+MultiSynth("multi_clarinet_p", synths=[clarinet_a3_p, clarinet_a5_p])
+        
+HarmonicSynth("clarinet", sample_name="clarinet_a3_f", elastic=True)
+HarmonicSynth("saxophone", sample_name="saxophone_a3", elastic=True)

@@ -458,7 +458,7 @@ class Items:
                     vol += atom.compute_contour(t2i, item_vc)
 
             # compute clip
-            instrument = engine.synth_lib.get_instrument(atom.instrument)
+            instrument = engine.instruments[atom.instrument]
             ring = hasattr(atom, "ring") and atom.ring 
             dur_secs = atom.dur_secs if not ring else None
             atom.clip = instrument.get_clip(freq, vol, dur_secs)
@@ -509,10 +509,10 @@ class R(S): pass
 #
 
 # make instruments from lib available
-def std_instruments(lib):
+def std_instruments():
     b = builtins.__dict__
-    for instrument in lib.instruments:
-        b[instrument] = Atom(instrument = instrument, lib = lib)
+    for instrument in engine.instruments:
+        b[instrument] = Atom(instrument = instrument)
 
 #
 # absolute pitches af0 through gs7, and relative pitches a through g
@@ -573,6 +573,6 @@ def std_defs():
     builtins.stop = Atom(ring = False)
     std_tuning()
     std_vol()
-    std_instruments(engine.synth_lib)
+    std_instruments()
 
 std_defs()
