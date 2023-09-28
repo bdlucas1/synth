@@ -112,6 +112,10 @@ class Atom:
 
     def compute_contour(self, t2i, item_contour):
 
+        # optimization: single segment of same length as self is just returned as a number
+        if len(item_contour)==1 and len(item_contour[0])==2 and item_contour[0][0]==self.dur_units:
+            return item_contour[0][1]
+
         # compute segments
         segments = []
         for segment in item_contour:

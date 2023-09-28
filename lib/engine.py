@@ -611,7 +611,7 @@ class HarmonicSynth(BaseSynth):
 
         return clip_dur, harmonics
 
-class MultiSynth(BaseSynth):
+class MultiFreqSynth(BaseSynth):
 
     def __init__(self, name, synths):
         super().__init__(name)
@@ -668,6 +668,41 @@ class MultiSynth(BaseSynth):
         self.harmonics[(freq, dur)] = result
         return result
 
+class MultiVolSynth(BaseSynth):
+
+    def __init__(self, name, synths):
+        super().__init__(name)
+        self.name = name
+        self.synths = synths
+
+    def get_clip(self, freq, vol, dur, ph=False):
+        
+        scalar_vol = vol if isinstance(vol, (int,float)) else sum(vol) / len(vol)
+
+        # lo?
+        if scalar_vol <= self.synths[0][0]:
+            result = self.synths[0][1].get_clip(freq, vol, dur)
+
+        # hi?
+        elif scalar_vol >= self.synths[-1][0]:
+            result = self.synths[-1][1].get_clip(freq, vol, dur)
+
+        # interp
+        else:
+            for s1, s2 in zip(self.synths[:-1], self.synths[1:]):
+                if scalar_vol >= s1[0] and scalar_vol <= s2[0]:
+                    clip1 = s1[1].get_clip(freq, vol, dur)
+                    clip2 = s2[1].get_clip(freq, vol, dur)
+                    if clip1.dur < clip2.dur:
+                        clip1 = clip1.padded(0, clip2.dur - clip1.dur)
+                    elif clip1.dur > clip2.dur:
+                        clip2 = clip2.padded(0, clip1.dur - clip2.dur)
+                    m2 = (vol - s1[0]) / (s2[0] - s1[0])
+                    result = Clip().like(clip1)
+                    result.buf = clip1.buf * (1-m2) + clip2.buf * m2
+
+        return result
+
 #
 # instrument registry
 #
@@ -684,23 +719,42 @@ def register(name, instrument):
 
 HarmonicSynth("sin", harmonics=[1])
 
+#
+# guitar
+#
+
 HarmonicSynth("guitar_a2_f", sample_name="guitar_a2_f", elastic=False)
 HarmonicSynth("guitar_a3_f", sample_name="guitar_a3_f", elastic=False)
 HarmonicSynth("guitar_a2_p", sample_name="guitar_a2_p", ease_out=0.01, elastic=False)
 HarmonicSynth("guitar_a3_p", sample_name="guitar_a3_p", ease_out=0.01, elastic=False)
 
-MultiSynth("multi_guitar_f", synths=[guitar_a2_f, guitar_a3_f])
-MultiSynth("multi_guitar_p", synths=[guitar_a2_p, guitar_a3_p])
+MultiFreqSynth("multi_guitar_f", synths=[guitar_a2_f, guitar_a3_f])
+MultiFreqSynth("multi_guitar_p", synths=[guitar_a2_p, guitar_a3_p])
+
+MultiVolSynth("multi_vol_guitar", synths=[(50,multi_guitar_p), (70,multi_guitar_f)])
 
 register("guitar", multi_guitar_p)
+#register("guitar", multi_vol_guitar)
+
+#
+# clarinet
+#
 
 HarmonicSynth("clarinet_a3_f", sample_name="clarinet_a3_f", elastic=True)
 HarmonicSynth("clarinet_a5_f", sample_name="clarinet_a5_f", elastic=True)
 HarmonicSynth("clarinet_a3_p", sample_name="clarinet_a3_p", elastic=True)
 HarmonicSynth("clarinet_a5_p", sample_name="clarinet_a5_p", elastic=True)
 
-MultiSynth("multi_clarinet_f", synths=[clarinet_a3_f, clarinet_a5_f])
-MultiSynth("multi_clarinet_p", synths=[clarinet_a3_p, clarinet_a5_p])
+MultiFreqSynth("multi_clarinet_f", synths=[clarinet_a3_f, clarinet_a5_f])
+MultiFreqSynth("multi_clarinet_p", synths=[clarinet_a3_p, clarinet_a5_p])
         
-HarmonicSynth("clarinet", sample_name="clarinet_a3_f", elastic=True)
+MultiVolSynth("multi_vol_clarinet", synths=[(30,multi_clarinet_p), (70,multi_clarinet_f)])
+
+register("clarinet", clarinet_a3_f)
+#register("clarinet", multi_vol_clarinet)
+
+#
+# saxophone
+#
+
 HarmonicSynth("saxophone", sample_name="saxophone_a3", elastic=True)
