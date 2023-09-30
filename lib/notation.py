@@ -8,6 +8,7 @@ import sys
 import time as sys_time
 import atexit
 
+auto_save = "--nosave" not in sys.argv
 auto_play = "--play" in sys.argv
 dprint = print if "--dbg" in sys.argv else lambda *args: None
 
@@ -254,8 +255,8 @@ class Items:
                 item.top = False
         def process_top():
             if self.top:
-                self.render()
-                self.write()
+                if auto_save:
+                    self.write()
                 if auto_play:
                     self.play()
         atexit.register(process_top)
