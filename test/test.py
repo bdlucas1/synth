@@ -5,6 +5,8 @@ import engine
 import os
 import numpy as np
 
+notation.auto_save = False
+
 #
 #
 #
