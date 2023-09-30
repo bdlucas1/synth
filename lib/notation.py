@@ -377,8 +377,11 @@ class Items:
                         # tie and hold extend the previous note
                         # hold is extra-temporal
                         if item.pitch in ("tie", "hold"):
-                            result[-1].dur_secs += item.dur_secs
-                            result[-1].dur_bars += item.dur_bars
+                            for atom in reversed(result):
+                                if hasattr(atom, "pitch"):
+                                    atom.dur_secs += item.dur_secs
+                                    atom.dur_bars += item.dur_bars
+                                    break
                             if isinstance(self, P):
                                 self.dur_secs = max(self.dur_secs, result[-1].dur_secs)
                                 self.dur_bars = max(self.dur_bars, result[-1].dur_bars)
