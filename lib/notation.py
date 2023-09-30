@@ -5,6 +5,11 @@ import inspect
 import math
 import random
 import sys
+import time as sys_time
+import atexit
+
+auto_play = "--play" in sys.argv
+dprint = print if "--dbg" in sys.argv else lambda *args: None
 
 class Atom:
 
@@ -238,7 +243,22 @@ class Atom:
 class Items:
 
     def __init__(self, *items):
+
         self.items = items
+        self.clip = None
+
+        # auto-play top level
+        self.top = True
+        for item in items:
+            if isinstance(item, Items):
+                item.top = False
+        def process_top():
+            if self.top:
+                self.render()
+                self.write()
+                if auto_play:
+                    self.play()
+        atexit.register(process_top)
 
     def __or__(self, other):
         return S(self, Atom(bar = True), other)
@@ -276,7 +296,7 @@ class Items:
 
                 # bar check
                 if hasattr(item, "bar") and item.bar:
-                    print(f"--- bar {t_bars:.2f} t {t_secs:.2f}")
+                    dprint(f"--- bar {t_bars:.2f} t {t_secs:.2f}")
                     if (abs(t_bars%1) > 1e-6):
                         print(item.loc(), "error: bar check fails")
                         exit(-1)
@@ -371,7 +391,7 @@ class Items:
                         result.append(item)
 
                     # debug note item
-                    print(
+                    dprint(
                         f"{indent}note {item.instrument:10s} "
                         f"pitch:{pitch_dbg:10s} "
                         f"vol:{vol_dbg:10s} "
@@ -386,14 +406,18 @@ class Items:
                     for a in ("exclude", "t_secs", "dur_secs", "t_units", "dur_units", "dbg"):
                         if a in d:
                             del d[a]
-                    print(f"{indent}meta", *[f"{n}:{v}" for n, v in d.items()])
+                    dprint(f"{indent}meta", *[f"{n}:{v}" for n, v in d.items()])
                     item.dur_secs = 0
                     item.dur_bars = 0
+
+                    # append marker for bar items
+                    if hasattr(item, "bar") and item.bar:
+                        result.append(item)
 
                 # save defaults, excluding attributes marked exclude
                 for attr in item.__dict__:
                     if not attr in item.exclude:
-                        if (attr=="bar"): print("propagating bar")
+                        if (attr=="bar"): dprint("propagating bar")
                         defaults.__dict__[attr] = item.__dict__[attr]
 
             elif isinstance(item, (P, S)):
@@ -420,6 +444,13 @@ class Items:
 
     def render(self):
     
+        # already done?
+        if self.clip:
+            return self.clip
+
+        # timing
+        start_time = sys_time.time()
+
         # half at start, half at end
         pad = 1
     
@@ -445,8 +476,12 @@ class Items:
         # compute clips
         for atom in atoms:
 
-            print(f"rendering {atom.t_secs:.2f}s")
+            dprint(f"rendering {atom.t_secs:.2f}s")
             sys.stdout.flush()
+
+            # bypass if marker, e.g. bar atom
+            if not hasattr(atom, "pitch"):
+                continue
 
             # compute freq
             pitch = atom.pitch + atom.transpose
@@ -468,28 +503,43 @@ class Items:
             atom.clip = instrument.get_clip(freq, vol, dur_secs)
 
         # compute end
-        end = max(atom.t_secs + atom.clip.dur for atom in atoms) + pad/2
+        end = max(atom.t_secs + atom.clip.dur for atom in atoms if hasattr(atom, "clip")) + pad/2
     
         # overlay all clips
-        clip = engine.Clip().zeros(dur=end)
+        self.clip = engine.Clip().zeros(dur=end)
+        self.syncpoints = {}
         for atom in atoms:
-            i = clip.t2i(atom.t_secs)
-            clip.buf[i : i+len(atom.clip.buf)] += atom.clip.buf
+            if hasattr(atom, "clip"):
+                i = self.clip.t2i(atom.t_secs)
+                self.clip.buf[i : i+len(atom.clip.buf)] += atom.clip.buf
+            if hasattr(atom, "bar") and atom.bar == True:
+                self.syncpoints[round(atom.t_bars)] = atom.t_secs # xxx check for conflict
             
-        return clip
+        print(f"rendering time {sys_time.time()-start_time:.2f}s")
+        return self.clip
 
     def play(self):
-        clip = self.render()
-        clip.play()
-        return clip
+        self.render()
+        self.clip.play()
+        return self.clip
 
     def write(self, f=None):
-        if f == None:
-            #f = sys.argv[0].replace(".py", ".ogg")
-            f = sys.argv[0].replace(".py", ".mp3")
+
+        # render if not already done
         clip = self.render()
+
+        # write clip
+        if f == None:
+            f = sys.argv[0].replace(".py", ".mp3")
         print("writing", f)
         clip.write(f)
+
+        # write syncpoints
+        f = f.replace(".mp3", ".sync")
+        print("writing", f)
+        syncpoints = [list(item) for item in sorted(self.syncpoints.items())]
+        open(f, "w").write(str(syncpoints))
+
         return clip
 
     # repeat other times
