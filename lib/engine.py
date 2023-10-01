@@ -723,10 +723,10 @@ HarmonicSynth("sin", harmonics=[1])
 # guitar
 #
 
-HarmonicSynth("guitar_a2_f", sample_name="guitar_a2_f", ease_out=0.01, elastic=False)
-HarmonicSynth("guitar_a3_f", sample_name="guitar_a3_f", ease_out=0.01, elastic=False)
-HarmonicSynth("guitar_a2_p", sample_name="guitar_a2_p", ease_out=0.01, elastic=False)
-HarmonicSynth("guitar_a3_p", sample_name="guitar_a3_p", ease_out=0.01, elastic=False)
+HarmonicSynth("guitar_a2_f", ease_out=0.1, elastic=False)
+HarmonicSynth("guitar_a3_f", ease_out=0.1, elastic=False)
+HarmonicSynth("guitar_a2_p", ease_out=0.1, elastic=False)
+HarmonicSynth("guitar_a3_p", ease_out=0.1, elastic=False)
 
 MultiFreqSynth("multi_guitar_f", synths=[guitar_a2_f, guitar_a3_f])
 MultiFreqSynth("multi_guitar_p", synths=[guitar_a2_p, guitar_a3_p])
