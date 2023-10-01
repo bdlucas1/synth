@@ -151,6 +151,12 @@ class Clip:
         result.buf = self.buf[self.t2i(start) : -self.t2i(end)]
         return result
 
+    def sliced(self, start, end):
+        result = Clip().like(self)
+        result.buf = self.buf[self.t2i(start) : self.t2i(end)]
+        return result
+
+
     @property
     def fs(self):
         return np.linspace(0, self.sample_rate / 2, len(self.spectrum))
@@ -389,6 +395,39 @@ class Clip:
         ax.plot(self.fs, abs(self.spectrum) / m, **kwargs)
 
 #
+# Sample registers an instrument that plays only one note
+#
+
+class Sample:
+
+    def load(sample_name):
+        sample_dn = os.path.join(os.path.dirname(__file__), "..", "samples")
+        sample_fn = os.path.join(sample_dn, f"{sample_name}.flac")
+        clip = Clip().read(sample_fn)
+        clip.buf /= max(abs(clip.buf))
+        return clip
+
+    def __init__(self, sample_name, ease_out=0.1):
+        self.sample_name = sample_name
+        self.ease_out = ease_out
+        self.clip = None
+        register(sample_name + "_sample", self)
+
+    def get_clip(self, freq, vol, dur):
+
+        if not self.clip:
+            self.clip = Sample.load(self.sample_name)
+
+        clip = self.clip
+        if dur < clip.dur:
+            clip = clip.trimmed(0, clip.dur - dur)
+            ease_out = clip.interp_envelope([0, dur-self.ease_out, dur], [1, 1, 0]) ** 2
+            clip.apply_envelope(ease_out)
+
+        return clip
+
+
+#
 # Synth is a clip factory
 #
 
@@ -452,6 +491,8 @@ class BaseSynth:
     # get clip of given freq, vol, dur, using memo
     def get_clip(self, freq, vol, dur, ph=False):
 
+        self.realize()
+
         # used for "ring" for non-elastic instruments (e.g. guitar)
         if dur is None: dur = self.base_dur
 
@@ -488,7 +529,7 @@ class HarmonicSynth(BaseSynth):
         super().__init__(name)
 
         self.name = name
-        self.sample_name = sample_name
+        self.sample_name = sample_name if sample_name else name
         self.elastic = elastic
         self.ease_out = ease_out
 
@@ -518,6 +559,8 @@ class HarmonicSynth(BaseSynth):
         else:
             return False
 
+    
+
     # xxx do the from_ things here and in Clip with subclasses??
     def realize(self):
         
@@ -530,10 +573,7 @@ class HarmonicSynth(BaseSynth):
             return
 
         # read sample
-        sample_dn = os.path.join(os.path.dirname(__file__), "..", "samples")
-        sample_fn = os.path.join(sample_dn, f"{self.sample_name}.flac")
-        sample = Clip().read(sample_fn)
-        sample.buf /= max(abs(sample.buf))
+        sample = Sample.load(self.sample_name)
 
         # base info
         # xxx allow fundamental to be supplied on instantiation?
@@ -618,17 +658,27 @@ class MultiFreqSynth(BaseSynth):
         self.name = name
         self.synths = synths
 
-    def get_harmonics(self, freq, dur, clip):
-
-        # xxx realizes all synths even if we only use one
-        # xxx make this auto?
+    # xxx realizes all synths even if we only use one
+    # xxx make this auto?
+    def realize(self):
+        if hasattr(self, "harmonics"):
+            return
         for synth in self.synths:
             synth.realize()
+
+    @property
+    def base_dur(self):
+        self.realize()
+        return max(synth.base_dur for synth in self.synths)
+
+    def get_harmonics(self, freq, dur, clip):
+
+        # we'll need harmonics etc. for underlying synths
+        self.realize()
 
         # parameters
         self.elastic = self.synths[0].elastic
         self.ease_out = sum(synth.ease_out for synth in self.synths) / len(self.synths)
-        self.base_dur = max(synth.base_dur for synth in self.synths)
         self.harmonics = {} # map from (freq,dur) to harmonics
 
         # portamento - use avg freq
@@ -652,6 +702,8 @@ class MultiFreqSynth(BaseSynth):
             for s1, s2 in zip(self.synths[:-1], self.synths[1:]):
                 if freq >= s1.base_fundamental and freq <= s2.base_fundamental:
                     m2 = (freq - s1.base_fundamental) / (s2.base_fundamental - s1.base_fundamental)
+                    # hack: bias towards higher pitch so we don't get too much higher harmonics
+                    #m2 = m2**0.7
                     h1_dur, h1 = s1.get_harmonics(freq, dur, clip)
                     h2_dur, h2 = s2.get_harmonics(freq, dur, clip)
                     clip_dur = max(h1_dur, h2_dur)
@@ -719,6 +771,17 @@ def register(name, instrument):
 
 HarmonicSynth("sin", harmonics=[1])
 
+Sample("clarinet_a3_f")
+Sample("clarinet_a3_p")
+Sample("clarinet_a5_f")
+Sample("clarinet_a5_p")
+Sample("guitar_a2_f", ease_out=0.01)
+Sample("guitar_a2_p", ease_out=0.01)
+Sample("guitar_a3_f", ease_out=0.01)
+Sample("guitar_a3_p", ease_out=0.01)
+Sample("saxophone_a3")
+
+
 #
 # guitar
 #
@@ -740,10 +803,10 @@ register("guitar", multi_vol_guitar)
 # clarinet
 #
 
-HarmonicSynth("clarinet_a3_f", sample_name="clarinet_a3_f", elastic=True)
-HarmonicSynth("clarinet_a5_f", sample_name="clarinet_a5_f", elastic=True)
-HarmonicSynth("clarinet_a3_p", sample_name="clarinet_a3_p", elastic=True)
-HarmonicSynth("clarinet_a5_p", sample_name="clarinet_a5_p", elastic=True)
+HarmonicSynth("clarinet_a3_f", elastic=True)
+HarmonicSynth("clarinet_a5_f", elastic=True)
+HarmonicSynth("clarinet_a3_p", elastic=True)
+HarmonicSynth("clarinet_a5_p", elastic=True)
 
 MultiFreqSynth("multi_clarinet_f", synths=[clarinet_a3_f, clarinet_a5_f])
 MultiFreqSynth("multi_clarinet_p", synths=[clarinet_a3_p, clarinet_a5_p])

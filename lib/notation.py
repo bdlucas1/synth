@@ -7,10 +7,19 @@ import random
 import sys
 import time as sys_time
 import atexit
+import argparse
 
-auto_save = "--nosave" not in sys.argv
-auto_play = "--play" in sys.argv
-dprint = print if "--dbg" in sys.argv else lambda *args: None
+parser = argparse.ArgumentParser()
+parser.add_argument("-p", "--play", action="store_true")
+parser.add_argument("-l", "--loop", action="store_true")
+parser.add_argument("-s", "--save", action="store_true")
+parser.add_argument("-d", "--dbg", action="store_true")
+parser.add_argument("-b", "--bars")
+args = parser.parse_args()
+
+# process --dbg arg
+dprint = print if args.dbg else lambda *args: None
+
 
 class Atom:
 
@@ -255,10 +264,13 @@ class Items:
                 item.top = False
         def process_top():
             if self.top:
-                if auto_save:
+                if args.save:
                     self.write()
-                if auto_play:
-                    self.play()
+                if args.play or args.loop:
+                    while True:
+                        self.play()
+                        if not args.loop:
+                            break
         atexit.register(process_top)
 
     def __or__(self, other):
@@ -391,6 +403,7 @@ class Items:
                         del item.pitch
 
                     else:
+
                         # emit instantiated atom with a numeric pitch
                         result.append(item)
 
@@ -519,6 +532,19 @@ class Items:
             if hasattr(atom, "bar") and atom.bar == True:
                 self.syncpoints[round(atom.t_bars)] = atom.t_secs # xxx check for conflict
             
+        # apply --bars
+        if args.bars:
+            pruned = engine.Clip() # xxx sample rate
+            for spec in args.bars.split(","):
+                spec = spec.split("-")
+                start = int(spec[0])
+                end = start if len(spec) == 1 else int(spec[1])
+                start = self.syncpoints[start-1]
+                end = self.syncpoints[end]
+                pruned |= self.clip.sliced(start, end)
+            self.clip = pruned
+            self.syncpoints = None # no longer valid
+
         print(f"rendering time {sys_time.time()-start_time:.2f}s")
         return self.clip
 
@@ -539,10 +565,11 @@ class Items:
         clip.write(f)
 
         # write syncpoints
-        f = f.replace(".mp3", ".sync")
-        print("writing", f)
-        syncpoints = [list(item) for item in sorted(self.syncpoints.items())]
-        open(f, "w").write(str(syncpoints))
+        if self.syncpoints:
+            f = f.replace(".mp3", ".sync")
+            print("writing", f)
+            syncpoints = [list(item) for item in sorted(self.syncpoints.items())]
+            open(f, "w").write(str(syncpoints))
 
         return clip
 
