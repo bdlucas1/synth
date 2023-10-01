@@ -14,8 +14,7 @@ Ip = I > [10]
 port = lambda note: [(7/8*note.dur_units,0), (1/8*note.dur_units,0,-2)]
 
 P(
-    #multi_guitar_p,
-    multi_vol_guitar,
+    guitar,
     tempo(4,120),
     time(4,4),
     transpose(-12),
