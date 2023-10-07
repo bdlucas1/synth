@@ -8,6 +8,7 @@ import sys
 import time as sys_time
 import atexit
 import argparse
+import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--play", action="store_true")
@@ -43,11 +44,12 @@ class Atom:
 
     def loc(self):
         if hasattr(self, "dbg"):
-            bars, beats = self.bars2beats(self.t_bars - self.dbg.t_bars)
             loc = f"{self.dbg.fn}:{self.dbg.line}"
             if self.dbg.col is not None:
                 loc += f":{self.dbg.col}"
-            loc += ": bar {bars+1} beat {beats+1}:"
+            if hasattr(self, "time"):
+                bars, beats = self.bars2beats(self.t_bars - self.dbg.t_bars)
+                loc += ": bar {bars+1} beat {beats+1}:"
             return loc
         else:
             return ""
@@ -252,26 +254,27 @@ class Atom:
 # base for P, S, and R
 class Items:
 
+    last = None
+
+    def process_last():
+        if Items.last:
+            if args.save:
+                Items.last.write()
+            if args.play or args.loop:
+                while True:
+                    Items.last.play()
+                    if not args.loop:
+                        break
+
     def __init__(self, *items):
 
         self.items = items
         self.clip = None
 
         # auto-play top level
-        self.top = True
-        for item in items:
-            if isinstance(item, Items):
-                item.top = False
-        def process_top():
-            if self.top:
-                if args.save:
-                    self.write()
-                if args.play or args.loop:
-                    while True:
-                        self.play()
-                        if not args.loop:
-                            break
-        atexit.register(process_top)
+        if Items.last == None:
+            atexit.register(Items.process_last)
+        Items.last = self
 
     def __or__(self, other):
         return S(self, Atom(bar = True), other)
@@ -310,9 +313,9 @@ class Items:
                 # bar check
                 if hasattr(item, "bar") and item.bar:
                     dprint(f"--- bar {t_bars:.2f} t {t_secs:.2f}")
-                    if (abs(t_bars%1) > 1e-6):
+                    if (abs(t_bars - round(t_bars)) > 1e-6):
                         print(item.loc(), "error: bar check fails")
-                        exit(-1)
+                        os._exit(-1)
 
                 # if we're a note item
                 note_attrs = ("pitch", "relpitch", "dur_units")
@@ -482,7 +485,7 @@ class Items:
             vcs = [],
             pcs = [],
             pitch = c4.pitch, # middle c
-            dur_units = 1/4
+            dur_units = 1/4,
         )
         atoms = []
         self.traverse(defaults.copy(), pad/2, None, atoms)
@@ -546,6 +549,7 @@ class Items:
             self.syncpoints = None # no longer valid
 
         print(f"rendering time {sys_time.time()-start_time:.2f}s")
+        print(f"clip duration {self.clip.dur:.3f}s")
         return self.clip
 
     def play(self):
