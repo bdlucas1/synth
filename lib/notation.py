@@ -22,6 +22,61 @@ args = parser.parse_args()
 dprint = print if args.dbg else lambda *args: None
 
 
+# this class encapsulates representation and conversions note duration value
+# xxx this is a lot of mechanism for uncertain gain...
+class T:
+
+    def __init__(self, t, divisions = None):
+        if divisions is not None:
+            # musicxml measures time in units of divisions of a quarter note
+            self.t = t / (4 * divisions)
+        elif isinstance(t, tuple):
+            # sum of reciprocals: (2,) is half note, (4,) quarter note, (2,4) dotted half, ...
+            self.t = sum(1/tt for tt in t)
+        elif isinstance(t, (int,float)):
+            # underlying representation is portion of whole note as a floating point number
+            self.t = t
+        elif isinstance(t, T):
+            self.t = t.t
+        else:
+            raise Exception(f"bad t {t} {type(t)}")
+
+    def to_secs(self, tempo):
+        num, den = tempo
+        return self.t * num / den * 60
+
+    def to_bars(self, time):
+        num, den = time
+        return self.t * den / num
+
+    def __add__(self, other):
+        return T(self.t + other.t)
+
+    def __sub__(self, other):
+        return T(self.t - other.t)
+
+    def __eq__(self, other):
+        return abs(self.t - other.t) < 1e-6
+
+    def __gt__(self, other):
+        return not self==other and self.t > other.t
+
+    def __ge__(self, other):
+        return self==other or self.t > other.t
+
+    def __format__(self, fmt):
+        return format(self.t, fmt)
+
+    def __str__(self):
+        return f"T({self:.3f})"
+
+    def __repr__(self):
+        return str(self)
+
+    def __bool__(self):
+        return bool(self.t)
+
+
 class Atom:
 
     def __init__(self, **parms):
@@ -48,37 +103,12 @@ class Atom:
             if self.dbg.col is not None:
                 loc += f":{self.dbg.col}"
             if hasattr(self, "time"):
-                bars, beats = self.bars2beats(self.t_bars - self.dbg.t_bars)
-                loc += ": bar {bars+1} beat {beats+1}:"
+                num, den = self.time
+                bars, beats = math.floor(self.t_bars), round((self.t_bars % 1) * num)
+                loc += f": bar {bars+1} beat {beats+1}:"
             return loc
         else:
             return ""
-
-    #
-    # 3 measures of time:
-    #
-    # secs - real time as played
-    #
-    # units - fractions of a whole note. Relationship between units and
-    # secs is determined by item.tempo, and may be altered by pauses and holds
-    #
-    # bars - fractions of a bar. Relationship between units and bars is
-    # determined by item.time
-    #
-    # beats - subdivision of a bar, determined by numerator of time signature
-    #
-
-    def units2secs(self, units):
-        num, den = self.tempo
-        return units * num / den * 60
-        
-    def units2bars(self, units):
-        num, den = self.time
-        return units * den / num
-
-    def bars2beats(self, bars):
-        num, den = self.time
-        return math.floor(bars), round((bars % 1) * num)
 
     #
     #
@@ -88,16 +118,16 @@ class Atom:
 
         # compute item_contour
         item_contour = []
-        want_dur = self.dur_units
+        want_dur = self.dur
         if isinstance(contour, (int,float)):
-            contour = [(self.dur_units, contour)]
+            contour = [(self.dur, contour)]
         while want_dur and len(contour):
             if isinstance(contour[0], (int,float)):
                 contour = contour.copy()
-                contour[0] = [self.dur_units, contour[0]]
-            have_dur = contour[0][0]
+                contour[0] = [self.dur, contour[0]]
+            have_dur = T(contour[0][0])
             dv = contour[0][1:]
-            if abs(want_dur - have_dur) < 1e-6:
+            if want_dur == have_dur:
                 have_dur = want_dur
             if want_dur >= have_dur:
                 item_contour.append((have_dur, *dv))
@@ -106,7 +136,7 @@ class Atom:
             else: # want_dur < have_dur
                 item_contour.append((want_dur, *dv))
                 contour = [(have_dur-want_dur, *dv)] + contour[1:]
-                want_dur = 0
+                want_dur = T(0)
 
         # discontinuity check
         last_dv_end = None
@@ -130,18 +160,18 @@ class Atom:
     def compute_contour(self, t2i, item_contour):
 
         # optimization: single segment of same length as self is just returned as a number
-        if len(item_contour)==1 and len(item_contour[0])==2 and item_contour[0][0]==self.dur_units:
+        if len(item_contour)==1 and len(item_contour[0])==2 and item_contour[0][0]==self.dur:
             return item_contour[0][1]
 
         # compute segments
         segments = []
         for segment in item_contour:
             if len(segment) == 2:
-                dur_units, dv_start = segment
+                dur, dv_start = segment
                 dv_end = dv_start
             elif len(segment) == 3:
-                dur_units, dv_start, dv_end = segment
-            dur_secs = self.units2secs(dur_units)
+                dur, dv_start, dv_end = segment
+            dur_secs = dur.to_secs(self.tempo)
             n = t2i(dur_secs)
             segments.append(np.interp(range(n), [0,n], [dv_start, dv_end]))
 
@@ -163,7 +193,7 @@ class Atom:
     def __mod__(self, other):
         copy = self.copy()
         if isinstance(other, (float, int)):
-            copy.exclude.add("dur_units")
+            copy.exclude.add("dur")
         else:
             copy.exclude.update(set(other.__dict__.keys()))
         return copy / other
@@ -183,9 +213,9 @@ class Atom:
 
             # special cases for /n durs
             if isinstance(other, (float, int)):
-                other = Atom(dur_units = 1 / other)
+                other = Atom(dur = T((other,)))
             elif isinstance(other, tuple):
-                other = Atom(dur_units = sum(1/o for o in other))
+                other = Atom(dur = T(other))
 
             # merge attributes
             result.__dict__.update(other.__dict__)
@@ -318,7 +348,7 @@ class Items:
                         os._exit(-1)
 
                 # if we're a note item
-                note_attrs = ("pitch", "relpitch", "dur_units")
+                note_attrs = ("pitch", "relpitch", "dur")
                 if any(hasattr(item, attr) for attr in note_attrs):
 
                     # merge vcs - xxx similar code in item.copy - factor it out?
@@ -335,8 +365,8 @@ class Items:
                     item.t_secs += item.jitter("t_secs")                    
 
                     # compute durs
-                    item.dur_secs = item.units2secs(item.dur_units)
-                    item.dur_bars = item.units2bars(item.dur_units)
+                    item.dur_secs = item.dur.to_secs(item.tempo)
+                    item.dur_bars = item.dur.to_bars(item.time)
 
                     # compute pitch
                     pitch_dbg = []
@@ -415,7 +445,7 @@ class Items:
                         f"{indent}note {item.instrument:10s} "
                         f"pitch:{pitch_dbg:10s} "
                         f"vol:{vol_dbg:10s} "
-                        f"units:{item.dur_units:5.3f} secs:{item.dur_secs:5.2f} "
+                        f"units:{item.dur:5.3f} secs:{item.dur_secs:5.2f} "
                         f"t:{item.t_secs:5.2f} "
                     )
             
@@ -423,7 +453,7 @@ class Items:
     
                     # we're a meta item
                     d = item.__dict__.copy()
-                    for a in ("exclude", "t_secs", "dur_secs", "t_units", "dur_units", "dbg"):
+                    for a in ("exclude", "t_secs", "dur_secs", "dur", "dbg"):
                         if a in d:
                             del d[a]
                     dprint(f"{indent}meta", *[f"{n}:{v}" for n, v in d.items()])
@@ -485,7 +515,7 @@ class Items:
             vcs = [],
             pcs = [],
             pitch = c4.pitch, # middle c
-            dur_units = 1/4,
+            dur = T(1/4),
         )
         atoms = []
         self.traverse(defaults.copy(), pad/2, None, atoms)
