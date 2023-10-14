@@ -109,6 +109,9 @@ class Test:
         lick = S(a2/2, cs, e, a)
         return S(guitar, lick, multi_guitar_f, lick)
 
+    # next
+    def test18():
+        pass
 
 def compare(ref_fn, test_fn):
 
@@ -162,6 +165,18 @@ def test(name):
     getattr(Test, name)().render().write(tmp_fn)
     compare(ref_fn, tmp_fn)
 
+def test17():
+    print("=== running test17 (musicxcml)")
+    fn = "test17"
+    xml_fn = os.path.join(os.path.dirname(__file__), "test17.xml")
+    tmp_fn = "/tmp/test17.mp3"
+    ref_fn = os.path.join(os.path.dirname(__file__), "test17.mp3")
+    import musicxml
+    musicxml.read(xml_fn).render().write(tmp_fn)
+    compare(ref_fn, tmp_fn)
+
+                          
+test17() # musicxml
 test("test16")
 test("test11")
 test("test15")

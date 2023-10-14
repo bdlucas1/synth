@@ -266,7 +266,7 @@ class Atom:
         return result
 
     def __mul__(self, other):
-        return S(*[self]*other)
+        return S(*[self]) * other
 
     def __or__(self, other):
         return S(self.copy(), Atom(bar = True), other)
@@ -326,6 +326,7 @@ class Items:
 
         self.items = list(items)
         self.clip = None
+        self.repeat = 1
 
         # auto-play top level
         if Items.main == None:
@@ -341,8 +342,12 @@ class Items:
     def __setitem__(self, i, v):
         self.items[i] = v
 
+    def __len__(self):
+        return len(self.items)
+
     def to_str(self, level = -1):
-        if level < 0 or (level > 0 and len(self.items) < 4):
+        is_chord = isinstance(self, P) and all(isinstance(i, Atom) for i in self.items)
+        if level < 0 or is_chord:
             result = self.__class__.__name__ + "("
             result += ", ".join(i.to_str() for i in self.items)
             result += ")"
@@ -353,15 +358,21 @@ class Items:
                 result += item.to_str(level + 1)
                 result += ","
             result += "\n" + "  " * level + ")"
+        if self.repeat > 1:
+            result += " * " + str(self.repeat)
         return result
 
     def __or__(self, other):
         return S(self, Atom(bar = True), other)
 
+    def traverse(self, *args, **kwargs):
+        for _ in range(self.repeat):
+            self.traverse1(*args, **kwargs)
+
     # traverse tree structure flattening into result
     # fully instantiate atoms with dur_secs, pitch, instrument,
     # using defaults to maintain and provide defaults for items
-    def traverse(self, defaults, t_secs, t_bars, result, indent=""):
+    def traverse1(self, defaults, t_secs, t_bars, result, indent=""):
 
         self.dur_secs = 0
         self.dur_bars = 0

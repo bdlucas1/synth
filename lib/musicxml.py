@@ -1,47 +1,61 @@
 import sys
 import xml.etree.ElementTree as ET
-from collections import defaultdict
 import notation
 import builtins
-
-notation.parser.add_argument("file")
-notation.parse_args()
-
-voices = defaultdict(notation.S)
 
 at = 0
 time_n = None
 time_d = None
 transpose_str = None
 
-def process(root):
+main = S()
+segment = P()
 
-    main = P()
+def end_segment():
+    global segment
+    if len(segment) > 0:
+        main.append(segment)
+        segment = P()
+
+def read(fn):
+
+    global segment
+
+    root = ET.parse(fn).getroot()
 
     for measure in root.findall(".//measure"):
     
-        # time
-        n = measure.find("attributes/time/beats")
-        d = measure.find("attributes/time/beat-type")
-        if n is not None and d is not None:
-            main.append(notation.time(int(n.text), int(d.text)))
-    
-        # transpose
-        t = measure.find("attributes/transpose/chromatic")
-        if t is not None:
-            main.append(notation.transpose(int(t.text)))
-    
-        # repeat
-        # xxx ignored for now
-        rpt = measure.find("barline/repeat[@direction='forward']")
-    
-        # divisions
-        d = measure.find("attributes/divisions")
-        if d is not None: divisions = int(d.text)
-    
         for item in measure:
     
-            if item.tag == "note":
+            if item.tag == "attributes":
+
+                # xxx does attributes always require this?
+                end_segment()
+
+                # time
+                n = item.find("time/beats")
+                d = item.find("time/beat-type")
+                if n is not None and d is not None:
+                    main.append(notation.time(int(n.text), int(d.text)))
+    
+                # transpose
+                t = item.find("transpose/chromatic")
+                if t is not None:
+                    main.append(notation.transpose(int(t.text)))
+                
+                # divisions
+                d = item.find("divisions")
+                if d is not None: divisions = int(d.text)
+
+            elif item.tag == "barline":
+
+                if item.find("repeat[@direction='forward']") is not None:
+                    end_segment()
+                    segment.repeat = 2
+                if item.find("repeat[@direction='backward']") is not None:
+                    end_segment()
+
+            elif item.tag == "note":
     
                 # voice
                 voice = item.find("voice")
@@ -62,6 +76,9 @@ def process(root):
                 is_chord = item.find("chord") is not None
                 
                 def emit(voice, atom):
+                    while len(segment) < voice:
+                        segment.append(S())
+                    voice = segment[voice-1]
                     if is_chord:
                         last = voice[-1]
                         if isinstance(last, notation.P):
@@ -74,21 +91,22 @@ def process(root):
 
                 # emit
                 if voice is not None:
-                    emit(voices[voice], atom)
+                    emit(voice, atom)
                 else:
-                    emit(voices[1], atom)
-                    for voice in voices.keys():
-                        if voice != 1:
-                            emit(voices[voice], notation.Atom(pitch = "rest", dur = dur))
+                    emit(1, atom)
+                    for voice in range(2, len(segment)+1):
+                        # xxx could just extend last rest
+                        emit(voice, notation.Atom(pitch = "rest", dur = dur))
     
-    for voice in voices.values():
-        main.append(voice)
+
+    end_segment()
     notation.Items.main = main
     return main
     
 if __name__ == "__main__":
-    root = ET.parse(notation.args.file).getroot()
-    main = process(root)
+    notation.parser.add_argument("file")
+    notation.parse_args()
+    main = read(notation.args.file)
     print(main.to_str(0))
 
 
