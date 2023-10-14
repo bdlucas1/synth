@@ -1,4 +1,4 @@
-import notation
+import piece
 
 # define stress (accent) patterns that apply to succeeding notes of measure
 # p primary, n none, s secondary

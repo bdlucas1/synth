@@ -1,4 +1,4 @@
-import notation
+import piece
 
 v1secA = S(
     ~I, c4/8, P(c5/8,e5/8), P(c5/8,e5/8),

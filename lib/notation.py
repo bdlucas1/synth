@@ -16,11 +16,15 @@ parser.add_argument("-l", "--loop", action="store_true")
 parser.add_argument("-s", "--save", action="store_true")
 parser.add_argument("-d", "--dbg", action="store_true")
 parser.add_argument("-b", "--bars")
-args = parser.parse_args()
+
+def parse_args():
+    global args
+    args = parser.parse_args()
 
 # process --dbg arg
-dprint = print if args.dbg else lambda *args: None
-
+def dprint(*s):
+    if args.dbg:
+        print(*s)
 
 # this class encapsulates representation and conversions note duration value
 # xxx this is a lot of mechanism for uncertain gain...
@@ -48,6 +52,18 @@ class T:
     def to_bars(self, time):
         num, den = time
         return self.t * den / num
+
+    def to_tuple(self):
+        d = 1
+        t = self.t
+        result = []
+        while T(t) > T(0):
+            if T(1/d) <= T(t):
+                result.append(d)
+                t -= 1/d
+            d *= 2 # xxx doesn't do triplets
+            #d += 1 # but this gives (3,24) instead of (4,8) :(
+        return tuple(result)
 
     def __add__(self, other):
         return T(self.t + other.t)
@@ -82,6 +98,16 @@ class Atom:
     def __init__(self, **parms):
         self.exclude = {"exclude"}
         self.__dict__.update(parms)
+
+    def to_str(self, level = -1):
+        if hasattr(self, "pitch") and hasattr(self, "dur"):
+            t = self.dur.to_tuple()
+            t = str(t[0]) if len(t)==1 else "(" + ",".join(str(tt) for tt in t) + ")"
+            # xxx probably needs to take key into account to get correct enharmonic
+            p = "r" if self.pitch=="rest" else pitch2str[self.pitch]
+            return p + "/" + t
+        else:
+            return str(self.__dict__)
 
     class Dbg:
         def __init__(self, frame):
@@ -284,27 +310,50 @@ class Atom:
 # base for P, S, and R
 class Items:
 
-    last = None
+    main = None
 
     def process_last():
-        if Items.last:
+        if Items.main:
             if args.save:
-                Items.last.write()
+                Items.main.write()
             if args.play or args.loop:
                 while True:
-                    Items.last.play()
+                    Items.main.play()
                     if not args.loop:
                         break
 
     def __init__(self, *items):
 
-        self.items = items
+        self.items = list(items)
         self.clip = None
 
         # auto-play top level
-        if Items.last == None:
+        if Items.main == None:
             atexit.register(Items.process_last)
-        Items.last = self
+        Items.main = self
+
+    def append(self, item):
+        self.items.append(item)
+
+    def __getitem__(self, i):
+        return self.items[i]
+
+    def __setitem__(self, i, v):
+        self.items[i] = v
+
+    def to_str(self, level = -1):
+        if level < 0 or (level > 0 and len(self.items) < 4):
+            result = self.__class__.__name__ + "("
+            result += ", ".join(i.to_str() for i in self.items)
+            result += ")"
+        else:
+            result = self.__class__.__name__ + "("
+            for item in self.items:
+                result += "\n" + "  " * (level + 1)
+                result += item.to_str(level + 1)
+                result += ","
+            result += "\n" + "  " * level + ")"
+        return result
 
     def __or__(self, other):
         return S(self, Atom(bar = True), other)
@@ -636,16 +685,17 @@ def std_instruments():
 #
 # absolute pitches af0 through gs7, and relative pitches a through g
 #
+pitch2str = {}
 def std_tuning():
     b = builtins.__dict__
-    for x, p in zip("cdefgab", [0,2,4,5,7,9,11]):
-        b[x] = Atom(relpitch = p)
-        b[x+"s"] = Atom(relpitch = p + 1)
-        b[x+"f"] = Atom(relpitch = p - 1)
-        for i in range(8):
-            b[x+str(i)] = Atom(pitch = i*12 + p)
-            b[x+"s"+str(i)] = Atom(pitch =i*12 + p + 1)
-            b[x+"f"+str(i)] = Atom(pitch = i*12 + p - 1)
+    for sfx, off in [("f", -1), ("s", 1), ("", 0)]:
+        for x, p in zip("cdefgab", [0,2,4,5,7,9,11]):
+            b[x+sfx] = Atom(relpitch = p + off)
+            for i in range(8):
+                pitch = i*12 + p + off
+                name = x+sfx+str(i)
+                b[name] = Atom(pitch = pitch)
+                pitch2str[pitch] = name
 
 def std_vol():
     b = builtins.__dict__

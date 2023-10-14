@@ -1,4 +1,4 @@
-import notation
+import piece
 
 # rhythmic (accent) patterns apply to succeeding notes from start of bar (I)
 I121 = I > [(1/4,8), (2/4,8)] # quarter note vol +8, then half note vol +8

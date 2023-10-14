@@ -1,4 +1,4 @@
-import notation
+import piece
 
 S(
     time(4,4),
