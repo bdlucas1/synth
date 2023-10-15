@@ -11,7 +11,7 @@ Ip = I > [10]
 #port = [(1/2-1/16,0), (1/16,0,-2)]
 
 # more general version - can be attached to note of any length
-port = lambda note: [(7/8*note.dur_units,0), (1/8*note.dur_units,0,-2)]
+port = lambda note: [(7/8*note.dur.t,0), (1/8*note.dur.t,0,-2)]
 
 P(
     guitar,
