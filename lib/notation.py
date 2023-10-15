@@ -13,6 +13,7 @@ import os
 parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--play", action="store_true")
 parser.add_argument("-l", "--loop", action="store_true")
+parser.add_argument("--print", action="store_true")
 parser.add_argument("-s", "--save", action="store_true")
 parser.add_argument("-d", "--dbg", action="store_true")
 parser.add_argument("-b", "--bars")
@@ -100,12 +101,25 @@ class Atom:
         self.__dict__.update(parms)
 
     def to_str(self, level = -1):
-        if hasattr(self, "pitch") and hasattr(self, "dur"):
-            t = self.dur.to_tuple()
-            t = str(t[0]) if len(t)==1 else "(" + ",".join(str(tt) for tt in t) + ")"
-            # xxx probably needs to take key into account to get correct enharmonic
-            p = "r" if self.pitch=="rest" else pitch2str[self.pitch]
-            return p + "/" + t
+
+        if hasattr(self, "dur"):
+            dur = self.dur.to_tuple()
+            dur = str(dur[0]) if len(dur)==1 else "(" + ",".join(str(d) for d in dur) + ")"
+            dur = "/" + dur
+        else:
+            dur = ""
+
+        # xxx probably needs to take key into account to get correct enharmonic
+        if hasattr(self, "pitch"):
+            return ("r" if self.pitch=="rest" else pitch2str[self.pitch]) + dur
+        elif hasattr(self, "relpitch"):
+            return relpitch2str[self.relpitch] + dur
+        elif hasattr(self, "time"):
+            return "time(" + str(self.time[0]) + "," + str(self.time[1]) + ")"
+        elif hasattr(self, "tempo"):
+            return "tempo(" + str(self.tempo[0]) + "," + str(self.tempo[1]) + ")"
+        elif hasattr(self, "transpose"):
+            return "transpose(" + str(self.transpose) + ")"
         else:
             return str(self.__dict__)
 
@@ -314,6 +328,8 @@ class Items:
 
     def process_last():
         if Items.main:
+            if args.print:
+                print(Items.main.to_str(0))
             if args.save:
                 Items.main.write()
             if args.play or args.loop:
@@ -326,7 +342,6 @@ class Items:
 
         self.items = list(items)
         self.clip = None
-        self.repeat = 1
 
         # auto-play top level
         if Items.main == None:
@@ -345,9 +360,16 @@ class Items:
     def __len__(self):
         return len(self.items)
 
+    def copy(self):
+        return self.__class__(*self.items)
+
     def to_str(self, level = -1):
-        is_chord = isinstance(self, P) and all(isinstance(i, Atom) for i in self.items)
-        if level < 0 or is_chord:
+
+        # repeats are expanded out (by __mul__) on the way in; un-expand them here for printing
+        if isinstance(self, S) and len(self) > 1 and all(i == self.items[0] for i in self.items):
+            return self.items[0].to_str(level) + " * " + str(len(self))
+
+        if len(self) <= 4 and all(isinstance(i, Atom) for i in self.items):
             result = self.__class__.__name__ + "("
             result += ", ".join(i.to_str() for i in self.items)
             result += ")"
@@ -358,21 +380,21 @@ class Items:
                 result += item.to_str(level + 1)
                 result += ","
             result += "\n" + "  " * level + ")"
-        if self.repeat > 1:
-            result += " * " + str(self.repeat)
         return result
 
+    # xxx not sure about this notation
     def __or__(self, other):
         return S(self, Atom(bar = True), other)
 
-    def traverse(self, *args, **kwargs):
-        for _ in range(self.repeat):
-            self.traverse1(*args, **kwargs)
+    # repeat other times
+    def __mul__(self, other):
+        #assert isinstance(other, int)
+        return S(*[self] * other)
 
     # traverse tree structure flattening into result
     # fully instantiate atoms with dur_secs, pitch, instrument,
     # using defaults to maintain and provide defaults for items
-    def traverse1(self, defaults, t_secs, t_bars, result, indent=""):
+    def traverse(self, defaults, t_secs, t_bars, result, indent=""):
 
         self.dur_secs = 0
         self.dur_bars = 0
@@ -667,10 +689,6 @@ class Items:
 
         return clip
 
-    # repeat other times
-    def __mul__(self, other):
-        #assert isinstance(other, int)
-        return S(*[self]*other)
 
 # a P is set of items played in parallel
 class P(Items): pass
@@ -697,11 +715,13 @@ def std_instruments():
 # absolute pitches af0 through gs7, and relative pitches a through g
 #
 pitch2str = {}
+relpitch2str = {}
 def std_tuning():
     b = builtins.__dict__
     for sfx, off in [("f", -1), ("s", 1), ("", 0)]:
         for x, p in zip("cdefgab", [0,2,4,5,7,9,11]):
             b[x+sfx] = Atom(relpitch = p + off)
+            relpitch2str[p+off] = x + sfx
             for i in range(8):
                 pitch = i*12 + p + off
                 name = x+sfx+str(i)
