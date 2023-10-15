@@ -47,12 +47,21 @@ def read(fn):
                 d = item.find("divisions")
                 if d is not None: divisions = int(d.text)
 
+            elif item.tag == "direction":
+            
+                beat_unit = item.find("direction-type/metronome/beat-unit")
+                per_minute = item.find("direction-type/metronome/per-minute")
+                if beat_unit is not None and per_minute is not None:
+                    beat_units = {"sixteenth":16, "eighth":8, "quarter":4, "half":2, "whole":1}
+                    beat_unit = beat_units[beat_unit.text]
+                    main.append(notation.tempo(beat_unit, int(per_minute.text)))
+
             elif item.tag == "barline":
 
                 if item.find("repeat[@direction='forward']") is not None:
                     end_segment()
-                    segment.repeat = 2
                 if item.find("repeat[@direction='backward']") is not None:
+                    segment = segment * 2
                     end_segment()
 
             elif item.tag == "note":
@@ -106,7 +115,6 @@ def read(fn):
 if __name__ == "__main__":
     notation.parser.add_argument("file")
     notation.parse_args()
-    main = read(notation.args.file)
-    print(main.to_str(0))
+    read(notation.args.file)
 
 
