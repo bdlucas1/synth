@@ -66,6 +66,13 @@ class T:
             #d += 1 # but this gives (3,24) instead of (4,8) :(
         return tuple(result)
 
+    def to_tuple_str(self):
+        t = self.to_tuple()
+        if len(t) == 1:
+            return str(t[0])
+        else:
+            return "(" + ",".join(str(tt) for tt in t) + ")"
+
     def __add__(self, other):
         return T(self.t + other.t)
 
@@ -103,9 +110,7 @@ class Atom:
     def to_str(self, level = -1):
 
         if hasattr(self, "dur"):
-            dur = self.dur.to_tuple()
-            dur = str(dur[0]) if len(dur)==1 else "(" + ",".join(str(d) for d in dur) + ")"
-            dur = "/" + dur
+            dur = "/" + self.dur.to_tuple_str()
         else:
             dur = ""
 
@@ -117,9 +122,11 @@ class Atom:
         elif hasattr(self, "time"):
             return "time(" + str(self.time[0]) + "," + str(self.time[1]) + ")"
         elif hasattr(self, "tempo"):
-            return "tempo(" + str(self.tempo[0]) + "," + str(self.tempo[1]) + ")"
+            return "tempo(" + T(1/self.tempo[0]).to_tuple_str() + "," + str(self.tempo[1]) + ")"
         elif hasattr(self, "transpose"):
             return "transpose(" + str(self.transpose) + ")"
+        elif hasattr(self, "bar"):
+            return "~I"
         else:
             return str(self.__dict__)
 
