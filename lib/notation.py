@@ -742,6 +742,8 @@ def std_vol():
 
 # first arg is subdivision (e.g. 4 for quarter), second arg is bpm (e.g. 60 for 60 bpm)
 def tempo(num, den):
+    if isinstance(num, tuple):
+        num = 1 / T(num).t
     return Atom(tempo = (num, den))
 
 def time(num, den):
