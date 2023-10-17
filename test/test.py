@@ -111,7 +111,23 @@ class Test:
 
     # next
     def test18():
-        pass
+        return S(
+            c4,
+            E1(g4),
+            E2(a)
+        ) * 2
+
+    def test19():
+        return S(
+            P(
+                S(a, b),
+                S(c, d),
+            ) * 2
+        )
+
+
+        
+
 
 def compare(ref_fn, test_fn):
 
@@ -176,6 +192,8 @@ def test17():
     compare(ref_fn, tmp_fn)
 
                           
+test("test19")
+test("test18")
 test17() # musicxml
 test("test16")
 test("test11")

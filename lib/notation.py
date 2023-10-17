@@ -349,6 +349,7 @@ class Items:
 
         self.items = list(items)
         self.clip = None
+        self.instance = None
 
         # auto-play top level
         if Items.main == None:
@@ -367,14 +368,12 @@ class Items:
     def __len__(self):
         return len(self.items)
 
-    def copy(self):
-        return self.__class__(*self.items)
+    def copy(self, instance = None):
+        result = self.__class__(*self.items)
+        result.instance = instance
+        return result
 
     def to_str(self, level = -1):
-
-        # repeats are expanded out (by __mul__) on the way in; un-expand them here for printing
-        if isinstance(self, S) and len(self) > 1 and all(i == self.items[0] for i in self.items):
-            return self.items[0].to_str(level) + " * " + str(len(self))
 
         if len(self) <= 4 and all(isinstance(i, Atom) for i in self.items):
             result = self.__class__.__name__ + "("
@@ -387,6 +386,10 @@ class Items:
                 result += item.to_str(level + 1)
                 result += ","
             result += "\n" + "  " * level + ")"
+
+        if hasattr(self, "repeat"):
+            result += " * " + str(self.repeat)
+
         return result
 
     # xxx not sure about this notation
@@ -396,12 +399,22 @@ class Items:
     # repeat other times
     def __mul__(self, other):
         #assert isinstance(other, int)
-        return S(*[self] * other)
+        result = self.copy()
+        result.repeat = other
+        return result
 
     # traverse tree structure flattening into result
     # fully instantiate atoms with dur_secs, pitch, instrument,
     # using defaults to maintain and provide defaults for items
     def traverse(self, defaults, t_secs, t_bars, result, indent=""):
+
+        # handle repeats as if enclosed in an S containing multiple instances of self
+        if hasattr(self, "repeat"):
+            repeated = S(*(self.copy(instance = i) for i in range(1, self.repeat+1)))
+            repeated.traverse(defaults, t_secs, t_bars, result, indent)
+            self.dur_secs = repeated.dur_secs
+            self.dur_bars = repeated.dur_bars
+            return
 
         self.dur_secs = 0
         self.dur_bars = 0
@@ -562,7 +575,12 @@ class Items:
             elif isinstance(item, (P, S)):
 
                 # recursively traverse a P or S
-                item.traverse(defaults, t_secs, t_bars, result, indent+"")
+                # item.ending are either None or a number 1, 2, ...
+                if item.ending == None or item.ending == self.instance:
+                    item.traverse(defaults, t_secs, t_bars, result, indent+"")
+                else:
+                    item.dur_secs = 0
+                    item.dur_bars = 0
 
             else:
                 raise Exception(f"bad item {item}")
@@ -698,19 +716,29 @@ class Items:
 
 
 # a P is set of items played in parallel
-class P(Items): pass
+class P(Items):
+    ending = None
 
 # an S is set of items played in sequence
-class S(Items): pass
+class S(Items):
+    ending = None
 
 # an R is a sequence that saves its defaults at the beginning
 # and restores it at the end
 class R(S): pass
 
-
 #
 # environment
 #
+
+def std_endings():
+    for e in range(1, 10):
+        name = "E" + str(e)
+        class _(S):
+            ending = e
+        _.__name__ = name
+        _.__qualname__ = name
+        builtins.__dict__[name] = _
 
 # make instruments from lib available
 def std_instruments():
@@ -780,6 +808,7 @@ def std_defs():
     builtins._ = Atom()
     builtins.ring = Atom(ring = True)
     builtins.stop = Atom(ring = False)
+    std_endings()
     std_tuning()
     std_vol()
     std_instruments()
