@@ -188,7 +188,7 @@ def test17():
     tmp_fn = "/tmp/test17.mp3"
     ref_fn = os.path.join(os.path.dirname(__file__), "test17.mp3")
     import musicxml
-    musicxml.read(xml_fn).render().write(tmp_fn)
+    musicxml.MXML().read(xml_fn).render().write(tmp_fn)
     compare(ref_fn, tmp_fn)
 
                           

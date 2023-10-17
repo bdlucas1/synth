@@ -8,120 +8,142 @@ time_n = None
 time_d = None
 transpose_str = None
 
-main = S()
-segment = P()
+class MXML:
 
-def end_segment():
-    global segment
-    if len(segment) > 0:
-        main.append(segment)
-        segment = P()
+    def __init__(self):
+        self.main = P()
 
-def read(fn):
+    def read(self, fn):
 
-    global segment
+        root = ET.parse(fn).getroot()
 
-    root = ET.parse(fn).getroot()
+        voices = set(voice.text for voice in root.findall(".//voice"))
+        for voice in voices:
+            self.scan(root, voice)
+            self.main.append(self.voice_segment)
 
-    for measure in root.findall(".//measure"):
-    
-        for item in measure:
-            
-            if item.tag == "attributes":
+        notation.Items.main = self.main
+        return self.main
 
-                # xxx does attributes always require this?
-                end_segment()
+    def active_segment(self):
+        if self.ending_segment is not None:
+            return self.ending_segment
+        elif self.repeat_segment is not None:
+            return self.repeat_segment
+        else:
+            return self.voice_segment        
 
-                # time
-                n = item.find("time/beats")
-                d = item.find("time/beat-type")
-                if n is not None and d is not None:
-                    main.append(notation.time(int(n.text), int(d.text)))
-                    
-                # transpose
-                t = item.find("transpose/chromatic")
-                if t is not None:
-                    main.append(notation.transpose(int(t.text)))
-                    
-                # divisions
-                d = item.find("divisions")
-                if d is not None: divisions = int(d.text)
+    # implict repeat back to beginning
+    def repeat_to_beginning(self):
+        self.repeat_segment = self.voice_segment * 2
+        self.voice_segment = S(self.repeat_segment)
+        self.last_repeat_segment = self.repeat_segment
 
-            elif item.tag == "direction":
-                
-                beat_unit = item.find("direction-type/metronome/beat-unit")
-                per_minute = item.find("direction-type/metronome/per-minute")
-                if beat_unit is not None and per_minute is not None:
-                    beat_units = {"sixteenth":16, "eighth":8, "quarter":4, "half":2, "whole":1}
-                    beat_unit = beat_units[beat_unit.text]
-                    if item.find("direction-type/metronome/beat-unit-dot") is not None:
-                        beat_unit *= 2/3
-                    main.append(notation.tempo(beat_unit, int(per_minute.text)))
+    def scan(self, root, for_voice):
 
-            elif item.tag == "barline":
+        self.voice_segment = S()
+        self.repeat_segment = None
+        self.last_repeat_segment = None
+        self.ending_segment = None
 
-                if item.find("repeat[@direction='forward']") is not None:
-                    end_segment()
-                if item.find("repeat[@direction='backward']") is not None:
-                    segment = segment * 2
-                    end_segment()
+        for measure in root.findall(".//measure"):
 
-            elif item.tag == "note":
-                
-                # voice
-                voice = item.find("voice")
-                if voice is not None: voice = int(voice.text)
-                
-                # pitch
-                pitch = item.find("pitch/step").text.lower() + item.find("pitch/octave").text
-                alter = item.find("pitch/alter")
-                alter = int(alter.text) if alter is not None else 0
-                pitch = getattr(builtins, pitch).pitch + alter# provided by notations
-                
-                # duration
-                dur_divisions = int(item.find("duration").text)
-                dur = notation.T(dur_divisions, divisions = divisions)
-                
-                # atom
-                atom = notation.Atom(pitch = pitch, dur = dur)
-                
-                # chord?
-                is_chord = item.find("chord") is not None
-                
-                def emit(voice_number, atom):
-                    while len(segment) < voice_number:
-                        segment.append(S())
-                    voice_segment = segment[voice_number-1]
-                    if is_chord:
-                        last = voice_segment[-1]
-                        if isinstance(last, notation.P):
-                            last.append(atom)
+            for item in measure:
+
+                if item.tag == "attributes":
+
+                    # xxx does attributes always require this?
+                    #self.end_segment()
+
+                    # time
+                    n = item.find("time/beats")
+                    d = item.find("time/beat-type")
+                    if n is not None and d is not None:
+                        self.active_segment().append(notation.time(int(n.text), int(d.text)))
+
+                    # transpose
+                    t = item.find("transpose/chromatic")
+                    if t is not None:
+                        self.active_segment().append(notation.transpose(int(t.text)))
+
+                    # divisions
+                    d = item.find("divisions")
+                    if d is not None: divisions = int(d.text)
+
+                elif item.tag == "direction":
+
+                    beat_unit = item.find("direction-type/metronome/beat-unit")
+                    per_minute = item.find("direction-type/metronome/per-minute")
+                    if beat_unit is not None and per_minute is not None:
+                        beat_units = {"sixteenth":16, "eighth":8, "quarter":4, "half":2, "whole":1}
+                        beat_unit = beat_units[beat_unit.text]
+                        if item.find("direction-type/metronome/beat-unit-dot") is not None:
+                            beat_unit *= 2/3
+                        tempo = notation.tempo(beat_unit, int(per_minute.text))
+                        self.active_segment().append(tempo)
+
+                elif item.tag == "barline":
+
+                    if item.find("repeat[@direction='forward']") is not None:
+                        self.repeat_segment = S() * 2
+                        self.voice_segment.append(self.repeat_segment)
+                        self.last_repeat_segment = self.repeat_segment # for endings
+                    if item.find("repeat[@direction='backward']") is not None:
+                        if self.repeat_segment is None:
+                            self.repeat_to_beginning()
+                        self.repeat_segment = None
+
+                    if (ending := item.find("ending[@type='start']")) is not None:
+                        if self.last_repeat_segment is None:
+                            self.repeat_to_beginning()
+                        E = builtins.__dict__["E" + ending.attrib["number"]]
+                        self.ending_segment = E()
+                        self.last_repeat_segment.append(self.ending_segment)
+                    if (ending := item.find("ending[@type='stop']")) is not None:
+                        self.ending_segment = None
+
+
+
+                elif item.tag == "note":
+
+                    # voice
+                    voice = item.find("voice")
+                    voice = voice.text if voice is not None else None
+
+                    # pitch
+                    pitch = item.find("pitch/step").text.lower() + item.find("pitch/octave").text
+                    alter = item.find("pitch/alter")
+                    alter = int(alter.text) if alter is not None else 0
+                    pitch = getattr(builtins, pitch).pitch + alter# provided by notations
+
+                    # duration
+                    dur_divisions = int(item.find("duration").text)
+                    dur = notation.T(dur_divisions, divisions = divisions)
+
+                    if voice is None or voice == for_voice:
+
+                        # atom
+                        if voice is None and for_voice != "1":
+                            pitch = "rest"
+                        atom = notation.Atom(pitch = pitch, dur = dur)
+
+                        # chord?
+                        if item.find("chord") is not None:
+                            last = self.active_segment()[-1]
+                            if isinstance(last, notation.P):
+                                last.append(atom)
+                            else:
+                                chord = P(last, atom)
+                                self.active_segment()[-1] = chord
                         else:
-                            chord = P(last, atom)
-                            voice_segment[-1] = chord
-                    else:
-                        voice_segment.append(atom)
+                            self.active_segment().append(atom)
 
-                # emit
-                if voice is not None:
-                    emit(voice, atom)
-                else:
-                    emit(1, atom)
-                    for voice in range(2, len(segment)+1):
-                        # xxx could just extend last rest
-                        emit(voice, notation.Atom(pitch = "rest", dur = dur))
+            # bar check at end of each measure
+            self.active_segment().append(I)
 
-        # bar check at end of each measure
-        for voice_segment in segment:
-            voice_segment.append(I)
-
-    end_segment()
-    notation.Items.main = main
-    return main
-    
 if __name__ == "__main__":
     notation.parser.add_argument("file")
     notation.parse_args()
-    read(notation.args.file)
+    MXML().read(notation.args.file)
 
 
