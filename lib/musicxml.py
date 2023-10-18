@@ -49,6 +49,8 @@ class MXML:
 
         for measure in root.findall(".//measure"):
 
+            measure_divisions = 0
+
             for item in measure:
 
                 if item.tag == "attributes":
@@ -56,20 +58,21 @@ class MXML:
                     # xxx does attributes always require this?
                     #self.end_segment()
 
+                    # divisions
+                    d = item.find("divisions")
+                    if d is not None: divisions = int(d.text)
+
                     # time
-                    n = item.find("time/beats")
-                    d = item.find("time/beat-type")
-                    if n is not None and d is not None:
-                        self.active_segment().append(notation.time(int(n.text), int(d.text)))
+                    num, den = item.find("time/beats"), item.find("time/beat-type")
+                    if num is not None and den is not None:
+                        num, den = int(num.text), int(den.text)
+                        self.active_segment().append(notation.time(num, den))
+                        self.divisions_per_measure = divisions * 4 * num / den
 
                     # transpose
                     t = item.find("transpose/chromatic")
                     if t is not None:
                         self.active_segment().append(notation.transpose(int(t.text)))
-
-                    # divisions
-                    d = item.find("divisions")
-                    if d is not None: divisions = int(d.text)
 
                 elif item.tag == "direction":
 
@@ -103,7 +106,9 @@ class MXML:
                     if (ending := item.find("ending[@type='stop']")) is not None:
                         self.ending_segment = None
 
-
+                elif item.tag == "backup":
+                        
+                    measure_divisions -= int(item.find("duration").text)
 
                 elif item.tag == "note":
 
@@ -120,6 +125,9 @@ class MXML:
                     # duration
                     dur_divisions = int(item.find("duration").text)
                     dur_units = notation.to_units(dur_divisions, divisions = divisions)
+
+                    if item.find("chord") is None:
+                        measure_divisions += dur_divisions
 
                     if voice is None or voice == for_voice:
 
@@ -139,8 +147,14 @@ class MXML:
                         else:
                             self.active_segment().append(atom)
 
-            # bar check at end of each measure
-            self.active_segment().append(I)
+                    self.measure_segment = self.active_segment()
+
+            # bar check at end of each measure, but not incomplete measures, except the first one
+            measure_number = measure.attrib["number"]
+            if measure_divisions % self.divisions_per_measure == 0 or measure_number == "1":
+                i = I.copy()
+                i.measure = measure_number
+                self.measure_segment.append(i)
 
 if __name__ == "__main__":
     notation.parser.add_argument("file")
