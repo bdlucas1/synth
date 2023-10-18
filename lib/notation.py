@@ -71,6 +71,7 @@ class Atom:
     def __init__(self, **parms):
         self.exclude = {"exclude"}
         self.__dict__.update(parms)
+        self.breaking = False
 
     def to_str(self, level = -1):
 
@@ -88,16 +89,21 @@ class Atom:
         elif hasattr(self, "relpitch"):
             return relpitch2str[self.relpitch] + dur
         elif hasattr(self, "time"):
+            self.breaking = True
             return "time(" + str(self.time[0]) + "," + str(self.time[1]) + ")"
         elif hasattr(self, "tempo"):
+            self.breaking = True
             num = to_tuple_str(Fraction(1, self.tempo[0]))
             den = str(self.tempo[1])
             return "tempo(" + num + "," + den + ")"
         elif hasattr(self, "transpose"):
+            self.breaking = True
             return "transpose(" + str(self.transpose) + ")"
         elif hasattr(self, "bar"):
+            self.breaking = True
             return "~I"
         else:
+            self.breaking = True
             return str(self.__dict__)
 
     class Dbg:
@@ -320,6 +326,7 @@ class Items:
         self.items = list(items)
         self.clip = None
         self.instance = None
+        self.breaking = True
 
         # auto-play top level
         if Items.main == None:
@@ -345,16 +352,26 @@ class Items:
 
     def to_str(self, level = -1):
 
-        if len(self) <= 4 and all(isinstance(i, Atom) for i in self.items):
+        if isinstance(self, P) and len(self) <= 4 and all(isinstance(i, Atom) for i in self.items):
             result = self.__class__.__name__ + "("
             result += ", ".join(i.to_str() for i in self.items)
             result += ")"
+            self.breaking = False
         else:
             result = self.__class__.__name__ + "("
+            breaking = True
             for item in self.items:
-                result += "\n" + "  " * (level + 1)
-                result += item.to_str(level + 1)
+                if breaking:
+                    result += "\n" + "  " * (level + 1)
+                else:
+                    result += " "
+                item_str = item.to_str(level + 1)
+                result += item_str
                 result += ","
+                breaking = item.breaking
+                if hasattr(item, "measure"):
+                    result += " # " + str(item.measure)
+                    breaking = True
             result += "\n" + "  " * level + ")"
 
         if hasattr(self, "repeat"):
