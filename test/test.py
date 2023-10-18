@@ -125,7 +125,26 @@ class Test:
             ) * 2
         )
 
+    def test20():
 
+        part1 = S(
+            time(6, 8),
+            tempo((4,8), 60),
+            I, c/(4,8), c/8, c/8, c/8, I, c/(2,4), I
+        )
+
+        part2 = S(
+            time(4, 4),
+            tempo(4, 120),
+            I, e/4, e/4, e/2, I, P(e/1, g), I
+        )
+
+        return P(
+            guitar,
+            part1,
+            part2
+        )
+        
         
 
 
@@ -192,19 +211,20 @@ def test17():
     compare(ref_fn, tmp_fn)
 
                           
+test("test20")
+test17() # musicxml
+test("test14")
+test("test7")
+test("test11")
+test("test9")
 test("test19")
 test("test18")
-test17() # musicxml
 test("test16")
-test("test11")
 test("test15")
 test("test12")
 test("test13")
-test("test14")
-test("test9")
 test("test10")
 test("test8")
-test("test7")
 test("test6")
 test("test1")
 test("test2")

@@ -27,80 +27,45 @@ def dprint(*s):
     if args.dbg:
         print(*s)
 
-# this class encapsulates representation and conversions note duration value
-# xxx this is a lot of mechanism for uncertain gain...
-class T:
+from fractions import Fraction
 
-    def __init__(self, t, divisions = None):
-        if divisions is not None:
-            # musicxml measures time in units of divisions of a quarter note
-            self.t = t / (4 * divisions)
-        elif isinstance(t, tuple):
-            # sum of reciprocals: (2,) is half note, (4,) quarter note, (2,4) dotted half, ...
-            self.t = sum(1/tt for tt in t)
-        elif isinstance(t, (int,float)):
-            # underlying representation is portion of whole note as a floating point number
-            self.t = t
-        elif isinstance(t, T):
-            self.t = t.t
-        else:
-            raise Exception(f"bad t {t} {type(t)}")
+def to_units(dur: int|tuple|Fraction, divisions = None) -> Fraction:
+    if divisions is not None:
+        # musicxml measures time in units of divisions of a quarter note
+        return Fraction(dur, 4 * divisions)
+    elif isinstance(dur, tuple):
+        # sum of reciprocals: (2,) is half note, (4,) quarter note, (2,4) dotted half, ...
+        return sum(Fraction(1, d) for d in dur)
+    elif isinstance(dur, Fraction):
+        return dur
+    elif isinstance(dur, (int,float)):
+        return Fraction(dur).limit_denominator(64*9*25*49)
+    else:
+        raise Exception(f"bad dur {dur} {type(dur)}")
 
-    def to_secs(self, tempo):
-        num, den = tempo
-        return self.t * num / den * 60
+def to_secs(units: Fraction, tempo: tuple):
+    return float(units * Fraction(*tempo) * 60)
 
-    def to_bars(self, time):
-        num, den = time
-        return self.t * den / num
+def to_bars(units: Fraction, time: tuple):
+    return units / Fraction(*time)
 
-    def to_tuple(self):
-        d = 1
-        t = self.t
-        result = []
-        while T(t) > T(0):
-            if T(1/d) <= T(t):
-                result.append(d)
-                t -= 1/d
-            d *= 2 # xxx doesn't do triplets
-            #d += 1 # but this gives (3,24) instead of (4,8) :(
-        return tuple(result)
+def to_tuple(units: Fraction):
+    d = Fraction(1)
+    result = []
+    while units > 0:
+        if 1 / d <= units:
+            result.append(int(d))
+            units -= 1 / d
+        d *= 2 # xxx doesn't do triplets
+        #d += 1 # but this gives (3,24) instead of (4,8) :(
+    return tuple(result)
 
-    def to_tuple_str(self):
-        t = self.to_tuple()
+def to_tuple_str(units: Fraction):
+        t = to_tuple(units)
         if len(t) == 1:
             return str(t[0])
         else:
             return "(" + ",".join(str(tt) for tt in t) + ")"
-
-    def __add__(self, other):
-        return T(self.t + other.t)
-
-    def __sub__(self, other):
-        return T(self.t - other.t)
-
-    def __eq__(self, other):
-        return abs(self.t - other.t) < 1e-6
-
-    def __gt__(self, other):
-        return not self==other and self.t > other.t
-
-    def __ge__(self, other):
-        return self==other or self.t > other.t
-
-    def __format__(self, fmt):
-        return format(self.t, fmt)
-
-    def __str__(self):
-        return f"T({self:.3f})"
-
-    def __repr__(self):
-        return str(self)
-
-    def __bool__(self):
-        return bool(self.t)
-
-
 class Atom:
 
     def __init__(self, **parms):
@@ -109,20 +74,25 @@ class Atom:
 
     def to_str(self, level = -1):
 
-        if hasattr(self, "dur"):
-            dur = "/" + self.dur.to_tuple_str()
+        if hasattr(self, "dur_units"):
+            dur = "/" + to_tuple_str(self.dur_units)
         else:
             dur = ""
 
         # xxx probably needs to take key into account to get correct enharmonic
         if hasattr(self, "pitch"):
-            return ("r" if self.pitch=="rest" else pitch2str[self.pitch]) + dur
+            if self.pitch == "rest": pitch = "r"
+            elif self.pitch == "tie": pitch = "t"
+            else: pitch = pitch2str[self.pitch]
+            return pitch + dur
         elif hasattr(self, "relpitch"):
             return relpitch2str[self.relpitch] + dur
         elif hasattr(self, "time"):
             return "time(" + str(self.time[0]) + "," + str(self.time[1]) + ")"
         elif hasattr(self, "tempo"):
-            return "tempo(" + T(1/self.tempo[0]).to_tuple_str() + "," + str(self.tempo[1]) + ")"
+            num = to_tuple_str(Fraction(1, self.tempo[0]))
+            den = str(self.tempo[1])
+            return "tempo(" + num + "," + den + ")"
         elif hasattr(self, "transpose"):
             return "transpose(" + str(self.transpose) + ")"
         elif hasattr(self, "bar"):
@@ -165,14 +135,14 @@ class Atom:
 
         # compute item_contour
         item_contour = []
-        want_dur = self.dur
+        want_dur = self.dur_units
         if isinstance(contour, (int,float)):
-            contour = [(self.dur, contour)]
+            contour = [(self.dur_units, contour)]
         while want_dur and len(contour):
             if isinstance(contour[0], (int,float)):
                 contour = contour.copy()
-                contour[0] = [self.dur, contour[0]]
-            have_dur = T(contour[0][0])
+                contour[0] = [self.dur_units, contour[0]]
+            have_dur = to_units(contour[0][0])
             dv = contour[0][1:]
             if want_dur == have_dur:
                 have_dur = want_dur
@@ -183,7 +153,7 @@ class Atom:
             else: # want_dur < have_dur
                 item_contour.append((want_dur, *dv))
                 contour = [(have_dur-want_dur, *dv)] + contour[1:]
-                want_dur = T(0)
+                want_dur = Fraction(0)
 
         # discontinuity check
         last_dv_end = None
@@ -207,7 +177,7 @@ class Atom:
     def compute_contour(self, t2i, item_contour):
 
         # optimization: single segment of same length as self is just returned as a number
-        if len(item_contour)==1 and len(item_contour[0])==2 and item_contour[0][0]==self.dur:
+        if len(item_contour)==1 and len(item_contour[0])==2 and item_contour[0][0]==self.dur_units:
             return item_contour[0][1]
 
         # compute segments
@@ -218,7 +188,7 @@ class Atom:
                 dv_end = dv_start
             elif len(segment) == 3:
                 dur, dv_start, dv_end = segment
-            dur_secs = dur.to_secs(self.tempo)
+            dur_secs = to_secs(dur, self.tempo)
             n = t2i(dur_secs)
             segments.append(np.interp(range(n), [0,n], [dv_start, dv_end]))
 
@@ -240,7 +210,7 @@ class Atom:
     def __mod__(self, other):
         copy = self.copy()
         if isinstance(other, (float, int)):
-            copy.exclude.add("dur")
+            copy.exclude.add("dur_units")
         else:
             copy.exclude.update(set(other.__dict__.keys()))
         return copy / other
@@ -260,9 +230,9 @@ class Atom:
 
             # special cases for /n durs
             if isinstance(other, (float, int)):
-                other = Atom(dur = T((other,)))
+                other = Atom(dur_units = to_units((other,)))
             elif isinstance(other, tuple):
-                other = Atom(dur = T(other))
+                other = Atom(dur_units = to_units(other))
 
             # merge attributes
             result.__dict__.update(other.__dict__)
@@ -444,13 +414,13 @@ class Items:
 
                 # bar check
                 if hasattr(item, "bar") and item.bar:
-                    dprint(f"--- bar {t_bars:.2f} t {t_secs:.2f}")
-                    if (abs(t_bars - round(t_bars)) > 1e-6):
+                    dprint(f"--- bar {float(t_bars):.2f} t {t_secs:.2f}")
+                    if (t_bars % 1 != 0):
                         print(item.loc(), "error: bar check fails")
                         os._exit(-1)
 
                 # if we're a note item
-                note_attrs = ("pitch", "relpitch", "dur")
+                note_attrs = ("pitch", "relpitch", "dur_units")
                 if any(hasattr(item, attr) for attr in note_attrs):
 
                     # merge vcs - xxx similar code in item.copy - factor it out?
@@ -467,8 +437,8 @@ class Items:
                     item.t_secs += item.jitter("t_secs")                    
 
                     # compute durs
-                    item.dur_secs = item.dur.to_secs(item.tempo)
-                    item.dur_bars = item.dur.to_bars(item.time)
+                    item.dur_secs = to_secs(item.dur_units, item.tempo)
+                    item.dur_bars = to_bars(item.dur_units, item.time)
 
                     # compute pitch
                     pitch_dbg = []
@@ -547,7 +517,7 @@ class Items:
                         f"{indent}note {item.instrument:10s} "
                         f"pitch:{pitch_dbg:10s} "
                         f"vol:{vol_dbg:10s} "
-                        f"units:{item.dur:5.3f} secs:{item.dur_secs:5.2f} "
+                        f"units:{float(item.dur_units):5.3f} secs:{item.dur_secs:5.2f} "
                         f"t:{item.t_secs:5.2f} "
                     )
             
@@ -555,7 +525,7 @@ class Items:
     
                     # we're a meta item
                     d = item.__dict__.copy()
-                    for a in ("exclude", "t_secs", "dur_secs", "dur", "dbg"):
+                    for a in ("exclude", "t_secs", "dur_secs", "dur_units", "dbg"):
                         if a in d:
                             del d[a]
                     dprint(f"{indent}meta", *[f"{n}:{v}" for n, v in d.items()])
@@ -614,15 +584,15 @@ class Items:
         # traverse our args as a seqence, accumulating atoms
         # and assigning them start times
         defaults = Atom(
-            tempo = (4,120),
-            time = (4,4),
+            tempo = (4, 120),
+            time = (4, 4),
             transpose = 0,
             instrument = "sin",
             vol = 50,
             vcs = [],
             pcs = [],
             pitch = c4.pitch, # middle c
-            dur = T(1/4),
+            dur_units = Fraction(1, 4),
         )
         atoms = []
         self.traverse(defaults.copy(), pad/2, None, atoms)
@@ -757,6 +727,8 @@ def std_tuning():
         for x, p in zip("cdefgab", [0,2,4,5,7,9,11]):
             b[x+sfx] = Atom(relpitch = p + off)
             relpitch2str[p+off] = x + sfx
+            relpitch2str[p+off+12] = "+" + x + sfx
+            relpitch2str[p+off-12] = "-" + x + sfx
             for i in range(8):
                 pitch = i*12 + p + off
                 name = x+sfx+str(i)
@@ -771,7 +743,7 @@ def std_vol():
 # first arg is subdivision (e.g. 4 for quarter), second arg is bpm (e.g. 60 for 60 bpm)
 def tempo(num, den):
     if isinstance(num, tuple):
-        num = 1 / T(num).t
+        num = 1 / to_units(num)
     return Atom(tempo = (num, den))
 
 def time(num, den):
