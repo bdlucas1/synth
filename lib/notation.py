@@ -119,8 +119,11 @@ class Atom:
 
     def to_str(self, level = -1):
 
+        def slash(attr):
+            return "%" if attr in self.exclude else "/"
+
         if hasattr(self, "dur_units"):
-            dur = "/" + to_tuple_str(self.dur_units)
+            dur = slash("dur_units") + to_tuple_str(self.dur_units)
         else:
             dur = ""
 
@@ -160,6 +163,10 @@ class Atom:
         if hasattr(self, "vcs"):
             for vc in self.vcs:
                 result += ">" + str(vc).replace(" ", "")
+        if hasattr(self, "ring"):
+            result += slash("ring") + "ring"
+        if hasattr(self, "vol"):
+            result += slash("vol") + "v" + str(self.vol)
 
         return result
 
@@ -800,7 +807,7 @@ def std_instruments():
 #
 # absolute pitches af0 through gs7, and relative pitches a through g
 #
-pitch2str = {}
+pitch2str = {"hold": "h", "pause": "p"}
 relpitch2str = {}
 def std_tuning():
     b = builtins.__dict__

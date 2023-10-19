@@ -202,11 +202,11 @@ def test(name):
     piece = getattr(Test, name)()
 
     # print as python, exec, see if we get it right
-    #piece_str = piece.to_str(0)
-    #print(piece_str)
-    #exec(piece_str)
-    #notation.Items.main.render().write(tmp_fn)
-    #compare(ref_fn, tmp_fn)
+    piece_str = piece.to_str(0)
+    print(piece_str)
+    exec(piece_str)
+    notation.Items.main.render().write(tmp_fn)
+    compare(ref_fn, tmp_fn)
 
     # render directly, see if we get it right
     piece.render().write(tmp_fn)
@@ -237,6 +237,12 @@ def test17():
     compare(ref_fn, tmp_fn)
 
                           
+test("test8")
+test("test6")
+test("test1")
+test("test2")
+test("test4")
+test("test5")
 test("test11")
 test("test14")
 test17() # musicxml
@@ -250,9 +256,3 @@ test("test15")
 test("test12")
 test("test13")
 test("test10")
-test("test8")
-test("test6")
-test("test1")
-test("test2")
-test("test4")
-test("test5")
