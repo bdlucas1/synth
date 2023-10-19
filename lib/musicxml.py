@@ -123,7 +123,7 @@ class MXML:
 
                     # duration
                     dur_divisions = int(item.find("duration").text)
-                    dur_units = notation.to_units(dur_divisions, divisions = divisions)
+                    dur_units = notation.Units.to_units(dur_divisions, divisions = divisions)
 
                     if item.find("chord") is None:
                         measure_divisions += dur_divisions

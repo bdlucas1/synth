@@ -59,56 +59,58 @@ class Units:
 
     def __init__(self, *args):
         args = map(Units.unwrap, args)
+        # limiting denominator makes things like Units(1/3) or Units(1/7) do the right thing
         self.f = fractions.Fraction(*args).limit_denominator(64*9*25*49)
 
     # this makes [Units] print as "[n/d]" instead of "[Fraction(n,d)]"
     def __repr__(self):
         return str(self.f)
 
-
-def to_units(dur: int|tuple|Units, divisions = None) -> Units:
-    if divisions is not None:
-        # musicxml measures time in units of divisions of a quarter note
-        return Units(dur, 4 * divisions)
-    elif isinstance(dur, tuple):
-        # sum of reciprocals: (2,) is half note, (4,) quarter note, (2,4) dotted half, ...
-        return sum(Units(1, d) for d in dur)
-    elif isinstance(dur, Units):
-        return dur
-    elif isinstance(dur, (int,float)):
-        return Units(dur)
-    else:
-        raise Exception(f"bad dur {dur} {type(dur)}")
-
-def to_secs(units: Units, tempo: tuple):
-    return float(units * Units(*tempo) * 60)
-
-def to_bars(units: Units, time: tuple):
-    return units / Units(*time)
-
-def to_tuple(units: Units):
-    d = Units(1)
-    result = []
-    while units > 0:
-        if 1 / d <= units:
-            result.append(int(d))
-            units -= 1 / d
-        d *= 2 # xxx doesn't do triplets
-        #d += 1 # but this gives (3,24) instead of (4,8) :(
-    return tuple(result)
-
-def to_tuple_str(units: Units):
-        t = to_tuple(units)
-        if len(t) == 1:
-            return str(t[0])
+    # xxx can we merge this into constructor?
+    def to_units(dur, divisions = None):
+        if divisions is not None:
+            # musicxml measures time in units of divisions of a quarter note
+            return Units(dur, 4 * divisions)
+        elif isinstance(dur, tuple):
+            # sum of reciprocals: (2,) is half note, (4,) quarter note, (2,4) dotted half, ...
+            return sum(Units(1, d) for d in dur)
+        elif isinstance(dur, Units):
+            return dur
+        elif isinstance(dur, (int,float)):
+            return Units(dur)
         else:
-            return "(" + ",".join(str(tt) for tt in t) + ")"
+            raise Exception(f"bad dur {dur} {type(dur)}")
+
+    def to_secs(self, tempo: tuple):
+        return float(self * Units(*tempo) * 60)
+
+    def to_bars(self, time: tuple):
+        return self / Units(*time)
+
+    def to_tuple(self):
+        d = Units(1)
+        units = self
+        result = []
+        while units > 0:
+            if 1 / d <= units:
+                result.append(int(d))
+                units -= 1 / d
+            d *= 2 # xxx doesn't do triplets
+            #d += 1 # but this gives (3,24) instead of (4,8) :(
+        return tuple(result)
+
+    def to_tuple_str(self):
+            t = self.to_tuple()
+            if len(t) == 1:
+                return str(t[0])
+            else:
+                return "(" + ",".join(str(tt) for tt in t) + ")"
 
 def normalize_contour(contour):
     if isinstance(contour, list):
         for i, c in enumerate(contour):
             if isinstance(c, tuple):
-                 contour[i] = tuple([to_units(c[0]), *c[1:]])
+                 contour[i] = tuple([Units.to_units(c[0]), *c[1:]])
 
 class Atom:
 
@@ -123,7 +125,7 @@ class Atom:
             return "%" if attr in self.exclude else "/"
 
         if hasattr(self, "dur_units"):
-            dur = slash("dur_units") + to_tuple_str(self.dur_units)
+            dur = slash("dur_units") + self.dur_units.to_tuple_str()
         else:
             dur = ""
 
@@ -138,7 +140,7 @@ class Atom:
             result = "time(" + str(self.time[0]) + "," + str(self.time[1]) + ")"
         elif hasattr(self, "tempo"):
             self.breaking = True
-            num = to_tuple_str(Units(1, self.tempo[0]))
+            num = Units(1, self.tempo[0]).to_tuple_str()
             den = str(self.tempo[1])
             result = "tempo(" + num + "," + den + ")"
         elif hasattr(self, "transpose"):
@@ -256,7 +258,7 @@ class Atom:
                 dv_end = dv_start
             elif len(segment) == 3:
                 dur, dv_start, dv_end = segment
-            dur_secs = to_secs(dur, self.tempo)
+            dur_secs = dur.to_secs(self.tempo)
             n = t2i(dur_secs)
             segments.append(np.interp(range(n), [0,n], [dv_start, dv_end]))
 
@@ -298,9 +300,9 @@ class Atom:
 
             # special cases for /n durs
             if isinstance(other, (float, int)):
-                other = Atom(dur_units = to_units((other,)))
+                other = Atom(dur_units = Units.to_units((other,)))
             elif isinstance(other, tuple):
-                other = Atom(dur_units = to_units(other))
+                other = Atom(dur_units = Units.to_units(other))
 
             # merge attributes
             result.__dict__.update(other.__dict__)
@@ -523,8 +525,8 @@ class Items:
                     item.t_secs += item.jitter("t_secs")                    
 
                     # compute durs
-                    item.dur_secs = to_secs(item.dur_units, item.tempo)
-                    item.dur_bars = to_bars(item.dur_units, item.time)
+                    item.dur_secs = item.dur_units.to_secs(item.tempo)
+                    item.dur_bars = item.dur_units.to_bars(item.time)
 
                     # compute pitch
                     pitch_dbg = []
@@ -829,7 +831,7 @@ def std_vol():
 # first arg is subdivision (e.g. 4 for quarter), second arg is bpm (e.g. 60 for 60 bpm)
 def tempo(num, den):
     if isinstance(num, tuple):
-        num = 1 / to_units(num)
+        num = 1 / Units.to_units(num)
     return Atom(tempo = (num, den))
 
 def time(num, den):
