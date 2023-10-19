@@ -2,7 +2,6 @@ import sys
 import xml.etree.ElementTree as ET
 import notation
 import builtins
-from fractions import Fraction
 
 at = 0
 time_n = None
@@ -82,7 +81,7 @@ class MXML:
                         beat_units = {"sixteenth":16, "eighth":8, "quarter":4, "half":2, "whole":1}
                         beat_unit = beat_units[beat_unit.text]
                         if item.find("direction-type/metronome/beat-unit-dot") is not None:
-                            beat_unit = beat_unit * Fraction(2, 3)
+                            beat_unit = beat_unit * notation.Units(2, 3)
                         tempo = notation.tempo(beat_unit, int(per_minute.text))
                         self.active_segment().append(tempo)
 

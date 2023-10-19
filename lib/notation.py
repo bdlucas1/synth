@@ -9,6 +9,7 @@ import time as sys_time
 import atexit
 import argparse
 import os
+import fractions
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--play", action="store_true")
@@ -27,30 +28,36 @@ def dprint(*s):
     if args.dbg:
         print(*s)
 
-from fractions import Fraction
+# a unit is a fraction of a whole note
+# used for durations, time in bars
+class Units(fractions.Fraction):
+    # use "n/d" instead of "Fraction(n, d)"
+    # this gives the right thing e.g. for str(contour)
+    def __repr__(self):
+        return str(self)
 
-def to_units(dur: int|tuple|Fraction, divisions = None) -> Fraction:
+def to_units(dur: int|tuple|Units, divisions = None) -> Units:
     if divisions is not None:
         # musicxml measures time in units of divisions of a quarter note
-        return Fraction(dur, 4 * divisions)
+        return Units(dur, 4 * divisions)
     elif isinstance(dur, tuple):
         # sum of reciprocals: (2,) is half note, (4,) quarter note, (2,4) dotted half, ...
-        return sum(Fraction(1, d) for d in dur)
-    elif isinstance(dur, Fraction):
+        return sum(Units(1, d) for d in dur)
+    elif isinstance(dur, Units):
         return dur
     elif isinstance(dur, (int,float)):
-        return Fraction(dur).limit_denominator(64*9*25*49)
+        return Units(dur).limit_denominator(64*9*25*49)
     else:
         raise Exception(f"bad dur {dur} {type(dur)}")
 
-def to_secs(units: Fraction, tempo: tuple):
-    return float(units * Fraction(*tempo) * 60)
+def to_secs(units: Units, tempo: tuple):
+    return float(units * Units(*tempo) * 60)
 
-def to_bars(units: Fraction, time: tuple):
-    return units / Fraction(*time)
+def to_bars(units: Units, time: tuple):
+    return units / Units(*time)
 
-def to_tuple(units: Fraction):
-    d = Fraction(1)
+def to_tuple(units: Units):
+    d = Units(1)
     result = []
     while units > 0:
         if 1 / d <= units:
@@ -60,7 +67,7 @@ def to_tuple(units: Fraction):
         #d += 1 # but this gives (3,24) instead of (4,8) :(
     return tuple(result)
 
-def to_tuple_str(units: Fraction):
+def to_tuple_str(units: Units):
         t = to_tuple(units)
         if len(t) == 1:
             return str(t[0])
@@ -72,19 +79,6 @@ def normalize_contour(contour):
         for i, c in enumerate(contour):
             if isinstance(c, tuple):
                  contour[i] = tuple([to_units(c[0]), *c[1:]])
-
-# str(list) seems to call repr on the elements, which doesn't do the right thing for Fraction
-# (prints "Fraction(n,d)" not "n/d"), so we roll our own.
-# xxx maybe introduce class Units(Fraction) that defines __repr__ to be same as __str__?
-# or introduce class Contour?
-def to_contour_str(contour):
-    if isinstance(contour, list):
-        return "[" + ",".join(to_contour_str(c) for c in contour) + "]"
-    elif isinstance(contour, tuple):
-        # xxx assumes no 1-element tuples
-        return "(" + ",".join(to_contour_str(c) for c in contour) + ")"
-    else:
-        return str(contour)
 
 class Atom:
 
@@ -113,7 +107,7 @@ class Atom:
             result = "time(" + str(self.time[0]) + "," + str(self.time[1]) + ")"
         elif hasattr(self, "tempo"):
             self.breaking = True
-            num = to_tuple_str(Fraction(1, self.tempo[0]))
+            num = to_tuple_str(Units(1, self.tempo[0]))
             den = str(self.tempo[1])
             result = "tempo(" + num + "," + den + ")"
         elif hasattr(self, "transpose"):
@@ -132,10 +126,10 @@ class Atom:
         # modifiers
         if hasattr(self, "pcs"):
             for pc in self.pcs:
-                result += "@" + to_contour_str(pc)
+                result += "@" + str(pc).replace(" ", "")
         if hasattr(self, "vcs"):
             for vc in self.vcs:
-                result += ">" + to_contour_str(vc)
+                result += ">" + str(vc).replace(" ", "")
 
         return result
 
@@ -181,7 +175,7 @@ class Atom:
             if isinstance(contour[0], (int,float)):
                 contour = contour.copy()
                 contour[0] = [self.dur_units, contour[0]]
-            have_dur = contour[0][0] # assumes already normalized so this is units (i.e. Fraction)
+            have_dur = contour[0][0] # assumes already normalized so this is units (i.e. Units)
             dv = contour[0][1:]
             if want_dur == have_dur:
                 have_dur = want_dur
@@ -649,7 +643,7 @@ class Items:
             vcs = [],
             pcs = [],
             pitch = c4.pitch, # middle c
-            dur_units = Fraction(1, 4),
+            dur_units = Units(1, 4),
         )
         atoms = []
         self.traverse(defaults.copy(), pad/2, None, atoms)
