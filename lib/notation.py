@@ -57,29 +57,28 @@ class Units:
         for m in "add sub mul truediv radd rtruediv int float mod round gt le eq hash".split():
             cls.delegate(m)
 
-    def __init__(self, *args):
-        args = map(Units.unwrap, args)
-        # limiting denominator makes things like Units(1/3) or Units(1/7) do the right thing
-        self.f = fractions.Fraction(*args).limit_denominator(64*9*25*49)
+    def __init__(self, num, den=None, divisions=None):
+        if den is not None:
+            self.f = fractions.Fraction(Units.unwrap(num), Units.unwrap(den))
+        elif divisions is not None:
+            # musicxml measures time in units of divisions of a quarter note
+            self.f = fractions.Fraction(Units.unwrap(num), 4 * divisions)
+        elif isinstance(num, tuple):
+            # sum of reciprocals: (2,) is half note, (4,) quarter note, (2,4) dotted half, ...
+            self.f = sum(fractions.Fraction(1, n) for n in num)
+        elif isinstance(num, Units):
+            self.f = num.f
+        elif isinstance(num, fractions.Fraction):
+            self.f = num
+        elif isinstance(num, (int,float)):
+            # limiting denominator makes things like Units(1/3) or Units(1/7) do the right thing
+            self.f = fractions.Fraction(num).limit_denominator(64*9*25*49)
+        else:
+            raise Exception(f"bad num {num} {type(num)}")
 
     # this makes [Units] print as "[n/d]" instead of "[Fraction(n,d)]"
     def __repr__(self):
         return str(self.f)
-
-    # xxx can we merge this into constructor?
-    def to_units(dur, divisions = None):
-        if divisions is not None:
-            # musicxml measures time in units of divisions of a quarter note
-            return Units(dur, 4 * divisions)
-        elif isinstance(dur, tuple):
-            # sum of reciprocals: (2,) is half note, (4,) quarter note, (2,4) dotted half, ...
-            return sum(Units(1, d) for d in dur)
-        elif isinstance(dur, Units):
-            return dur
-        elif isinstance(dur, (int,float)):
-            return Units(dur)
-        else:
-            raise Exception(f"bad dur {dur} {type(dur)}")
 
     def to_secs(self, tempo: tuple):
         return float(self * Units(*tempo) * 60)
@@ -100,17 +99,17 @@ class Units:
         return tuple(result)
 
     def to_tuple_str(self):
-            t = self.to_tuple()
-            if len(t) == 1:
-                return str(t[0])
-            else:
-                return "(" + ",".join(str(tt) for tt in t) + ")"
+        t = self.to_tuple()
+        if len(t) == 1:
+            return str(t[0])
+        else:
+            return "(" + ",".join(str(tt) for tt in t) + ")"
 
 def normalize_contour(contour):
     if isinstance(contour, list):
         for i, c in enumerate(contour):
             if isinstance(c, tuple):
-                 contour[i] = tuple([Units.to_units(c[0]), *c[1:]])
+                 contour[i] = tuple([Units(c[0]), *c[1:]])
 
 class Atom:
 
@@ -300,9 +299,9 @@ class Atom:
 
             # special cases for /n durs
             if isinstance(other, (float, int)):
-                other = Atom(dur_units = Units.to_units((other,)))
+                other = Atom(dur_units = Units((other,)))
             elif isinstance(other, tuple):
-                other = Atom(dur_units = Units.to_units(other))
+                other = Atom(dur_units = Units(other))
 
             # merge attributes
             result.__dict__.update(other.__dict__)
@@ -831,7 +830,7 @@ def std_vol():
 # first arg is subdivision (e.g. 4 for quarter), second arg is bpm (e.g. 60 for 60 bpm)
 def tempo(num, den):
     if isinstance(num, tuple):
-        num = 1 / Units.to_units(num)
+        num = 1 / Units(num)
     return Atom(tempo = (num, den))
 
 def time(num, den):

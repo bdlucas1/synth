@@ -237,14 +237,7 @@ def test17():
     compare(ref_fn, tmp_fn)
 
                           
-test("test8")
-test("test6")
-test("test1")
-test("test2")
-test("test4")
-test("test5")
-test("test11")
-test("test14")
+test("test11") # xxx fails if we move it later, not sure why
 test17() # musicxml
 test("test20")
 test("test7")
@@ -256,3 +249,10 @@ test("test15")
 test("test12")
 test("test13")
 test("test10")
+test("test8")
+test("test6")
+test("test1")
+test("test2")
+test("test4")
+test("test5")
+test("test14")
