@@ -28,13 +28,43 @@ def dprint(*s):
     if args.dbg:
         print(*s)
 
-# a unit is a fraction of a whole note
-# used for durations, time in bars
-class Units(fractions.Fraction):
-    # use "n/d" instead of "Fraction(n, d)"
-    # this gives the right thing e.g. for str(contour)
+#
+# a unit is a fraction of a whole note, used for durations, time in bars, etc.
+# we delegate instead of inheriting so that e.g. Units+Units would returns Units, not Fraction
+# this could be considered a design flaw in Fraction: it should return instance of subclass
+#
+def class_init(cls):
+    cls.class_init()
+    return cls
+
+@class_init
+class Units:
+
+    unwrap = lambda x: x.f if isinstance(x, Units) else x
+    wrap = lambda x: Units(x) if isinstance(x, fractions.Fraction) else x
+
+    @classmethod
+    def delegate(cls, m):
+        m = "__" + m + "__"
+        def delegated(self, *args):
+            args = map(cls.unwrap, args)
+            return cls.wrap(getattr(self.f, m)(*args))
+        setattr(cls, m, delegated)
+
+    @classmethod
+    def class_init(cls):
+        # extend this list as needed
+        for m in "add sub mul truediv radd rtruediv int float mod round gt le eq hash".split():
+            cls.delegate(m)
+
+    def __init__(self, *args):
+        args = map(Units.unwrap, args)
+        self.f = fractions.Fraction(*args).limit_denominator(64*9*25*49)
+
+    # this makes [Units] print as "[n/d]" instead of "[Fraction(n,d)]"
     def __repr__(self):
-        return str(self)
+        return str(self.f)
+
 
 def to_units(dur: int|tuple|Units, divisions = None) -> Units:
     if divisions is not None:
@@ -46,7 +76,7 @@ def to_units(dur: int|tuple|Units, divisions = None) -> Units:
     elif isinstance(dur, Units):
         return dur
     elif isinstance(dur, (int,float)):
-        return Units(dur).limit_denominator(64*9*25*49)
+        return Units(dur)
     else:
         raise Exception(f"bad dur {dur} {type(dur)}")
 
