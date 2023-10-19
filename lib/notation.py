@@ -129,9 +129,7 @@ class Atom:
 
         # xxx probably needs to take key into account to get correct enharmonic
         if hasattr(self, "pitch"):
-            if self.pitch == "rest": pitch = "r"
-            elif self.pitch == "tie": pitch = "t"
-            else: pitch = pitch2str[self.pitch]
+            pitch = pitch2str[self.pitch]
             result = pitch + dur
         elif hasattr(self, "relpitch"):
             result = relpitch2str[self.relpitch] + dur
@@ -807,7 +805,7 @@ def std_instruments():
 #
 # absolute pitches af0 through gs7, and relative pitches a through g
 #
-pitch2str = {"hold": "h", "pause": "p"}
+pitch2str = {"hold": "h", "pause": "p", "rest": "r", "tie": "t"}
 relpitch2str = {}
 def std_tuning():
     b = builtins.__dict__
