@@ -66,6 +66,26 @@ def to_tuple_str(units: Fraction):
             return str(t[0])
         else:
             return "(" + ",".join(str(tt) for tt in t) + ")"
+
+def normalize_contour(contour):
+    if isinstance(contour, list):
+        for i, c in enumerate(contour):
+            if isinstance(c, tuple):
+                 contour[i] = tuple([to_units(c[0]), *c[1:]])
+
+# str(list) seems to call repr on the elements, which doesn't do the right thing for Fraction
+# (prints "Fraction(n,d)" not "n/d"), so we roll our own.
+# xxx maybe introduce class Units(Fraction) that defines __repr__ to be same as __str__?
+# or introduce class Contour?
+def to_contour_str(contour):
+    if isinstance(contour, list):
+        return "[" + ",".join(to_contour_str(c) for c in contour) + "]"
+    elif isinstance(contour, tuple):
+        # xxx assumes no 1-element tuples
+        return "(" + ",".join(to_contour_str(c) for c in contour) + ")"
+    else:
+        return str(contour)
+
 class Atom:
 
     def __init__(self, **parms):
@@ -85,26 +105,39 @@ class Atom:
             if self.pitch == "rest": pitch = "r"
             elif self.pitch == "tie": pitch = "t"
             else: pitch = pitch2str[self.pitch]
-            return pitch + dur
+            result = pitch + dur
         elif hasattr(self, "relpitch"):
-            return relpitch2str[self.relpitch] + dur
+            result = relpitch2str[self.relpitch] + dur
         elif hasattr(self, "time"):
             self.breaking = True
-            return "time(" + str(self.time[0]) + "," + str(self.time[1]) + ")"
+            result = "time(" + str(self.time[0]) + "," + str(self.time[1]) + ")"
         elif hasattr(self, "tempo"):
             self.breaking = True
             num = to_tuple_str(Fraction(1, self.tempo[0]))
             den = str(self.tempo[1])
-            return "tempo(" + num + "," + den + ")"
+            result = "tempo(" + num + "," + den + ")"
         elif hasattr(self, "transpose"):
             self.breaking = True
-            return "transpose(" + str(self.transpose) + ")"
+            result = "transpose(" + str(self.transpose) + ")"
         elif hasattr(self, "bar"):
             self.breaking = True
-            return "~I"
+            result = "~I"
+        elif hasattr(self, "instrument"):
+            self.breaking = True
+            result = self.instrument
         else:
             self.breaking = True
-            return str(self.__dict__)
+            result = str(self.__dict__)
+
+        # modifiers
+        if hasattr(self, "pcs"):
+            for pc in self.pcs:
+                result += "@" + to_contour_str(pc)
+        if hasattr(self, "vcs"):
+            for vc in self.vcs:
+                result += ">" + to_contour_str(vc)
+
+        return result
 
     class Dbg:
         def __init__(self, frame):
@@ -148,7 +181,7 @@ class Atom:
             if isinstance(contour[0], (int,float)):
                 contour = contour.copy()
                 contour[0] = [self.dur_units, contour[0]]
-            have_dur = to_units(contour[0][0])
+            have_dur = contour[0][0] # assumes already normalized so this is units (i.e. Fraction)
             dv = contour[0][1:]
             if want_dur == have_dur:
                 have_dur = want_dur
@@ -159,7 +192,7 @@ class Atom:
             else: # want_dur < have_dur
                 item_contour.append((want_dur, *dv))
                 contour = [(have_dur-want_dur, *dv)] + contour[1:]
-                want_dur = Fraction(0)
+                want_dur = 0
 
         # discontinuity check
         last_dv_end = None
@@ -283,10 +316,12 @@ class Atom:
         return copy
 
     def __gt__(self, other):
+        normalize_contour(other)
         result = self / Atom(vcs = [other])
         return result
 
     def __matmul__(self, other):
+        normalize_contour(other)
         result = self / Atom(pcs = [other])
         return result
 
@@ -352,13 +387,18 @@ class Items:
 
     def to_str(self, level = -1):
 
+        if level == 0:
+            result = "import piece\n"
+        else:
+            result = ""
+
         if isinstance(self, P) and len(self) <= 4 and all(isinstance(i, Atom) for i in self.items):
-            result = self.__class__.__name__ + "("
+            result += self.__class__.__name__ + "("
             result += ", ".join(i.to_str() for i in self.items)
             result += ")"
             self.breaking = False
         else:
-            result = self.__class__.__name__ + "("
+            result += self.__class__.__name__ + "("
             breaking = True
             for item in self.items:
                 if breaking:

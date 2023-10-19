@@ -4,6 +4,7 @@ import soundfile as sf
 import engine
 import os
 import numpy as np
+import notation
 
 #
 #
@@ -197,25 +198,50 @@ def test(name):
     fn = f"{name}.mp3"
     tmp_fn = os.path.join("/tmp", fn)
     ref_fn = os.path.join(os.path.dirname(__file__), fn)
-    getattr(Test, name)().render().write(tmp_fn)
+
+    piece = getattr(Test, name)()
+
+    # print as python, exec, see if we get it right
+    #piece_str = piece.to_str(0)
+    #print(piece_str)
+    #exec(piece_str)
+    #notation.Items.main.render().write(tmp_fn)
+    #compare(ref_fn, tmp_fn)
+
+    # render directly, see if we get it right
+    piece.render().write(tmp_fn)
     compare(ref_fn, tmp_fn)
 
 def test17():
+
     print("=== running test17 (musicxcml)")
+
     fn = "test17"
     xml_fn = os.path.join(os.path.dirname(__file__), "test17.xml")
     tmp_fn = "/tmp/test17.mp3"
     ref_fn = os.path.join(os.path.dirname(__file__), "test17.mp3")
+
+    # read the musicxml piece
     import musicxml
-    musicxml.MXML().read(xml_fn).render().write(tmp_fn)
+    piece = musicxml.MXML().read(xml_fn)
+    
+    # print as python, exec, see if we get it right
+    piece_str = piece.to_str(0)
+    print(piece_str)
+    exec(piece_str)
+    notation.Items.main.render().write(tmp_fn)
+    compare(ref_fn, tmp_fn)
+
+    # render directly, see if we get it right
+    piece.render().write(tmp_fn)
     compare(ref_fn, tmp_fn)
 
                           
-test("test20")
-test17() # musicxml
-test("test14")
-test("test7")
 test("test11")
+test("test14")
+test17() # musicxml
+test("test20")
+test("test7")
 test("test9")
 test("test19")
 test("test18")
