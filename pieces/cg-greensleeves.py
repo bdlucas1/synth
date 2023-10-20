@@ -1,9 +1,11 @@
 # generated from cg-greensleeves.xml:
 # python3 ../lib/musicxml.py cg-greensleeves.xml --print
+# then edited
 
 import piece
 
 P(
+  guitar,
   S(
     S(
       time(6,8),
