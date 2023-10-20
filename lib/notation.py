@@ -33,6 +33,7 @@ def dprint(*s):
 # we delegate instead of inheriting so that e.g. Units+Units would returns Units, not Fraction
 # this could be considered a design flaw in Fraction: it should return instance of subclass
 #
+
 def class_init(cls):
     cls.class_init()
     return cls
@@ -44,18 +45,18 @@ class Units:
     wrap = lambda x: Units(x) if isinstance(x, fractions.Fraction) else x
 
     @classmethod
-    def delegate(cls, m):
-        m = "__" + m + "__"
-        def delegated(self, *args):
-            args = map(cls.unwrap, args)
-            return cls.wrap(getattr(self.f, m)(*args))
-        setattr(cls, m, delegated)
-
-    @classmethod
     def class_init(cls):
+
+        def delegate(op):
+            def delegated(self, *args):
+                args = map(cls.unwrap, args)
+                return cls.wrap(getattr(self.f, op)(*args))
+            setattr(cls, op, delegated)
+
         # extend this list as needed
-        for m in "add sub mul truediv radd rtruediv int float mod round gt le eq hash".split():
-            cls.delegate(m)
+        ops = "add sub mul truediv mod radd rtruediv float round gt le eq hash"
+        for op in ops.split():
+            delegate("__" + op + "__")
 
     def __init__(self, num, den=None, divisions=None):
         if den is not None:
@@ -92,7 +93,7 @@ class Units:
         result = []
         while units > 0:
             if 1 / d <= units:
-                result.append(int(d))
+                result.append(int(float(d)))
                 units -= 1 / d
             d *= 2 # xxx doesn't do triplets
             #d += 1 # but this gives (3,24) instead of (4,8) :(
